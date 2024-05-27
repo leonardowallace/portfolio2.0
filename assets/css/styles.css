@@ -642,13 +642,18 @@ img {
   .nav__menu{
     width: 50%;
   }
-
+/* Caso adicione foto
   .home__container{
     grid-template-columns: repeat(2, 350px);
   }
+*/
 
+.home__container{
+  display: flex;
+  flex-direction: column;
+}
   .home__data{
-    align-self: flex-end;
+    align-self: center;
     padding-bottom: 3rem;
     order: -1;
   }
