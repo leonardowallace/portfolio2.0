@@ -352,6 +352,7 @@ img {
   padding: 2rem 1.5rem 1.5rem 1.5rem;
   color: var(--text-color);
   transition: transform .4s;
+  height: 100%;
 }
 
 .work__title{
