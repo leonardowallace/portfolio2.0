@@ -1,0 +1,12 @@
+
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+logs/
+data/backup/
+data/output/assets/pdf/*.pdf
+!data/output/assets/pdf/cv-leonardo.pdf
