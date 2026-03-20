@@ -1,0 +1,3 @@
+
+# Dependências do Portfólio Leonardo Wallace
+# Nenhuma biblioteca externa necessária no momento (Uso de bibliotecas padrão do Python)

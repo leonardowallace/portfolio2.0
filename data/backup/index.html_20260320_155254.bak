@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leonardo Wallace Rodrigues de Oliveira | Portfólio</title>
+    <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="bg-glow"></div>
+    
+    <nav>
+        <div class="logo">Leonardo<span>.</span></div>
+        <ul><li><a href="#home">Home</a></li><li><a href="#experiência">Experiência</a></li><li><a href="#projetos">Projetos</a></li><li><a href="#contato">Contato</a></li></ul>
+    </nav>
+
+    <main>
+        <section id="home" class="hero">
+            <div class="hero-content">
+                <span class="badge">Disponível para novos desafios</span>
+                <h1>Leonardo Wallace Rodrigues de Oliveira</h1>
+                <h2>Service Desk Assistant | Automation & AI Enthusiast</h2>
+                <p class="about-text">Formado em Redes de Computadores pela UNINOVE (2024) e cursando Tecnologia em Inteligência Artificial. Possuo sólida experiência em suporte técnico, focado em alta eficiência operacional e automação de processos. Atualmente, atuo no setor farmacêutico (Natulab), onde aplico conhecimentos em infraestrutura e Service Desk para garantir a continuidade dos negócios.</p>
+                <div class="hero-actions">
+                    <a href="#projeos" class="btn-primary">Ver Projetos</a>
+                    <a href="assets/pdf/cv-leonardo.pdf" class="btn-secondary" download>Baixar CV</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="experiência" class="section">
+            <h2 class="section-title">Experiência Profissional</h2>
+            <div class="grid-container">
+                
+            <div class="glass-card exp-item">
+                <div class="exp-header">
+                    <h3>Assistente de Service Desk @ Natulab <span class="current-tag">Atual</span></h3>
+                    <span class="period">Mar 2024 - Presente</span>
+                </div>
+                <ul><li>Atendimento de Suporte N1 e N2 para usuários internos.</li><li>Criação e manutenção de imagens ISO customizadas do Windows para automação de deploy.</li><li>Suporte técnico geral em hardware, software e conectividade de redes.</li><li>Garantia de conformidade com SLAs corporativos no setor farmacêutico.</li></ul>
+            </div>
+            
+            <div class="glass-card exp-item">
+                <div class="exp-header">
+                    <h3>Analista de Suporte Júnior @ Stefanini Brasil </h3>
+                    <span class="period">Anterior</span>
+                </div>
+                <ul><li>Atendimento técnico e resolução de incidentes de tecnologia.</li><li>Suporte a sistemas operacionais e ferramentas corporativas.</li></ul>
+            </div>
+            
+            <div class="glass-card exp-item">
+                <div class="exp-header">
+                    <h3>Analista de TI (Terceirizado) @ 3AM IT Services </h3>
+                    <span class="period">Anterior</span>
+                </div>
+                <ul><li>Suporte especializado em infraestrutura de TI.</li><li>Monitoramento e manutenção de ativos de rede e servidores.</li></ul>
+            </div>
+            
+            <div class="glass-card exp-item">
+                <div class="exp-header">
+                    <h3>Auxiliar de Informática / Repositor / Aux. Operacional @ Atacadão </h3>
+                    <span class="period">Anterior</span>
+                </div>
+                <ul><li>Suporte básico de informática e operações de loja.</li><li>Gestão de estoque e organização de PDV.</li></ul>
+            </div>
+            
+            </div>
+        </section>
+
+        <section id="projetos" class="section">
+            <h2 class="section-title">Projetos em Destaque</h2>
+            <div class="grid-container">
+                
+            <a href="https://leonardowallace.github.io/workspace2.0/" target="_blank" class="glass-card project-card">
+                <span class="proj-type">Automation / Tools</span>
+                <h3>Workspace 2.0</h3>
+                <p>Centralização de todos os sistemas utilizados pela equipe em um único local.</p>
+                <div class="proj-arrow">ir para projeto ↗</div>
+            </a>
+            
+            <a href="https://pixelzonevlr.netlify.app/" target="_blank" class="glass-card project-card">
+                <span class="proj-type">Web App</span>
+                <h3>PixelZone</h3>
+                <p>Plataforma para jogadores de Valorant consultarem lineups estratégicas.</p>
+                <div class="proj-arrow">ir para projeto ↗</div>
+            </a>
+            
+            <a href="https://leonardowallace.github.io/streaming/" target="_blank" class="glass-card project-card">
+                <span class="proj-type">Web Design</span>
+                <h3>XStream</h3>
+                <p>Plataforma de streaming para exibição de filmes e séries.</p>
+                <div class="proj-arrow">ir para projeto ↗</div>
+            </a>
+            
+            <a href="https://leonardowallace.github.io/mini-game/" target="_blank" class="glass-card project-card">
+                <span class="proj-type">Game Dev</span>
+                <h3>Mario Jump</h3>
+                <p>Mini-game inspirado no dinossauro do Chrome (Exclusivo para PC).</p>
+                <div class="proj-arrow">ir para projeto ↗</div>
+            </a>
+            
+            <a href="https://leonardowallace.github.io/loja/" target="_blank" class="glass-card project-card">
+                <span class="proj-type">E-commerce</span>
+                <h3>Site para Loja</h3>
+                <p>E-commerce baseado na interface da Nike para exposição de produtos.</p>
+                <div class="proj-arrow">ir para projeto ↗</div>
+            </a>
+            
+            <a href="https://leonardowallace.github.io/marca/" target="_blank" class="glass-card project-card">
+                <span class="proj-type">UI/UX</span>
+                <h3>Portfólio de Moda</h3>
+                <p>Design focado para estudantes de moda no Brasil.</p>
+                <div class="proj-arrow">ir para projeto ↗</div>
+            </a>
+            
+            <a href="https://leonardowallace.github.io/login-page/" target="_blank" class="glass-card project-card">
+                <span class="proj-type">UI Component</span>
+                <h3>Tela de Login</h3>
+                <p>Interface minimalista e funcional para sistemas de autenticação.</p>
+                <div class="proj-arrow">ir para projeto ↗</div>
+            </a>
+            
+            </div>
+        </section>
+
+        <section class="section">
+            <h2 class="section-title">Habilidades & Educação</h2>
+            <div class="dual-grid">
+                <div class="glass-card">
+                    <h3>Minhas Skills</h3>
+                    <div class="skills-flex"><span class="skill-tag">Python</span><span class="skill-tag">HTML/CSS/JS</span><span class="skill-tag">Suporte N1/N2</span><span class="skill-tag">Redes de Computadores</span><span class="skill-tag">Windows Deployment (ISO)</span><span class="skill-tag">Inteligência Artificial</span><span class="skill-tag">Service Desk</span></div>
+                </div>
+                <div class="glass-card">
+                    <h3>Educação</h3>
+                    <div class="edu-item"><strong>Tecnólogo em Redes de Computadores</strong><br>UNINOVE (2024)</div><div class="edu-item"><strong>Tecnologia em Inteligência Artificial</strong><br>Universidade (Cursando) (Em andamento)</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="contato" class="contact-section">
+            <div class="glass-card contact-inner">
+                <h2>Vamos trabalhar juntos?</h2>
+                <p>Estou pronto para contribuir com suas soluções de TI e automação.</p>
+                <div class="social-links">
+                    <a href="https://www.linkedin.com/in/leonardo-wallace-a97569247/" target="_blank">LinkedIn</a>
+                    <a href="https://github.com/leonardowallace" target="_blank">GitHub</a>
+                    <a href="https://www.instagram.com/leowllce/" target="_blank">Instagram</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>© 2026 Leonardo Wallace Rodrigues de Oliveira - Gerado via Python Automation.</p>
+    </footer>
+</body>
+</html>
