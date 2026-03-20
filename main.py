@@ -27,6 +27,8 @@ def main():
         html_content = generator.generate_html()
         css_content = generator.generate_css()
         
+        
+
         # 3. Exportar resultados (HTML/CSS)
         exporter = Exporter()
         exporter.save(html_content, 'index.html')
@@ -47,6 +49,7 @@ def main():
                 logging.info(f"Asset copiado: {src} -> {dest}")
 
         logging.info("Portfólio gerado com sucesso em data/output/")
+
         print("✅ Portfólio gerado com sucesso em data/output/")
         
     except Exception as e:
