@@ -1,0 +1,7 @@
+
+[build]
+  command = "python main.py"
+  publish = "data/output"
+
+[build.environment]
+  PYTHON_VERSION = "3.8"
