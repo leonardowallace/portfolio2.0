@@ -74,7 +74,7 @@ class PortfolioGenerator:
                 <h2>{self.personal['title']}</h2>
                 <p class="about-text">{self.personal['about']}</p>
                 <div class="hero-actions">
-                    <a href="#projeos" class="btn-primary">Ver Projetos</a>
+                    <a href="#projetos" class="btn-primary">Ver Projetos</a>
                     <a href="{self.personal['cv_link']}" class="btn-secondary" download>Baixar CV</a>
                 </div>
             </div>

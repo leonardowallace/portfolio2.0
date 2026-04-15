@@ -78,6 +78,12 @@ CONFIG = {
 
     "projects": [
         {
+            "name": "Controle de Parcelas (Demo)",
+            "description": "Dashboard em Firebase e Alpine.js para gestão financeira com painel visual de contratos e parcelas pagas, atrasadas ou a vencer.",
+            "link": "./controle_parcelas_demo/index.html",
+            "type": "Fintech / Web App"
+        },
+        {
             "name": "Workspace 2.0",
             "description": "Centralização de todos os sistemas utilizados pela equipe em um único local.",
             "link": "https://leonardowallace.github.io/workspace2.0/",

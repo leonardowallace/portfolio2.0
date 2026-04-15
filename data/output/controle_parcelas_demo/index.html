@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natulab | Gestão Financeira Nuvem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    
+    <script>
+        // Inicialização primária para evitar erros de 'undefined' no Alpine.js
+        window.FirebaseDB = { ready: false };
+
+        // Configuração do Tailwind para cores customizadas
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        natulab: {
+                            DEFAULT: '#008f44',
+                            600: '#008f44',
+                            light: '#a2d216',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Firebase SDK v9+ (Modular) - Mockado para Preview Local com Contratos Fictícios -->
+    <script type="module">
+        console.log("Firebase mock injetado para visualização local com dados fictícios.");
+        
+        // Expondo para o Alpine.js via objeto global
+        window.FirebaseDB = { 
+            ready: true,
+            db: {}, auth: {}, 
+            collection: (db, path) => path, 
+            query: (...args) => args, 
+            where: (...args) => args, 
+            onSnapshot: (q, cb) => {
+                // Recupera o caminho da query recursivamente
+                const getPath = (arr) => {
+                    if (Array.isArray(arr)) return typeof arr[0] === 'string' ? arr[0] : getPath(arr[0]);
+                    return arr;
+                };
+                const path = getPath(q);
+                let docs = [];
+                
+                if (path === "contracts") {
+                    docs = [
+                        {
+                            id: "mocked-contract-1",
+                            data: () => ({
+                                customer_name: "Posto São João",
+                                description: "Compra de medicamentos genéricos lote 01",
+                                start_date: "2026-02-10",
+                                total_value: 15000.00,
+                                total_interest_expected: 1500.00,
+                                created_at: new Date(Date.now() - 86400000 * 60).toISOString()
+                            })
+                        },
+                        {
+                            id: "mocked-contract-2",
+                            data: () => ({
+                                customer_name: "Farmácia Boa Saúde",
+                                description: "Equipamentos cirúrgicos e luvas P, M e G",
+                                start_date: "2026-03-20",
+                                total_value: 35000.00,
+                                total_interest_expected: 2500.00,
+                                created_at: new Date(Date.now() - 86400000 * 30).toISOString()
+                            })
+                        },
+                        {
+                            id: "mocked-contract-3",
+                            data: () => ({
+                                customer_name: "Drogaria Avenida",
+                                description: "Suplementos Nutricionais Trimestre",
+                                start_date: "2026-04-01",
+                                total_value: 8000.00,
+                                total_interest_expected: 0,
+                                created_at: new Date(Date.now() - 86400000 * 15).toISOString()
+                            })
+                        }
+                    ];
+                } else if (path && path.startsWith("contracts/") && path.endsWith("/installments")) {
+                    const contractId = path.split('/')[1];
+                    const now = new Date();
+                    
+                    if (contractId === "mocked-contract-1") {
+                        // Misto: Paga, Atrasada (LATE) e Pendente
+                        docs = [
+                            { id: "inst-1-1", data: () => ({ due_date: "2026-03-10", value: 5000, interest: 500, status: "PAID", notes: "Paga em dia" }) },
+                            { id: "inst-1-2", data: () => ({ due_date: "2026-04-10", value: 5000, interest: 500, status: "OVERDUE", notes: "Sem aviso de pagamento ainda" }) },
+                            { id: "inst-1-3", data: () => ({ due_date: "2026-05-10", value: 5000, interest: 500, status: "PENDING", notes: "No prazo" }) }
+                        ];
+                    } else if (contractId === "mocked-contract-2") {
+                        // Todas Pendentes
+                        docs = [
+                            { id: "inst-2-1", data: () => ({ due_date: "2026-04-20", value: 17500, interest: 1250, status: "PENDING", notes: "Primeira metade" }) },
+                            { id: "inst-2-2", data: () => ({ due_date: "2026-05-20", value: 17500, interest: 1250, status: "PENDING", notes: "Segunda metade" }) }
+                        ];
+                    } else if (contractId === "mocked-contract-3") {
+                        // Todas pagas
+                        docs = [
+                            { id: "inst-3-1", data: () => ({ due_date: "2026-04-05", value: 8000, interest: 0, status: "PAID", notes: "Pago à vista antecipadamente" }) }
+                        ];
+                    }
+                } else if (path === "users_metadata") {
+                    docs = [
+                        {
+                            id: "admin-12345",
+                            data: () => ({
+                                email: "leonardooliveira@natulab.com.br",
+                                role: "admin",
+                                is_approved: true
+                            })
+                        }
+                    ];
+                }
+                
+                const snapshot = {
+                    size: docs.length,
+                    docs: docs,
+                    docChanges: () => docs.map(d => ({ type: "added", doc: d }))
+                };
+                
+                setTimeout(() => cb(snapshot), 100);
+                return () => {}; // remove listener
+            },
+            addDoc: async () => ({ id: 'mock-id' }), getDocs: async () => ({docs: []}), doc: () => {}, updateDoc: async () => {}, deleteDoc: async () => {}, serverTimestamp: () => new Date(), setDoc: async () => {}, getDoc: async () => ({exists: () => false, data: () => ({})}), 
+            signInWithEmailAndPassword: async () => {}, 
+            onAuthStateChanged: (auth, cb) => {
+                setTimeout(() => {
+                    cb({ email: 'leonardooliveira@natulab.com.br', uid: 'admin-12345', emailVerified: true });
+                }, 500);
+            }, 
+            signOut: async () => {
+                alert("Logout mockado.");
+                location.reload();
+            }, 
+            createUserWithEmailAndPassword: async () => {}, sendEmailVerification: async () => {}, reload: async () => {},
+            GoogleAuthProvider: class {}, signInWithPopup: async () => {}
+        };
+
+        // Avisa ao Alpine.js que o Firebase está pronto
+        document.dispatchEvent(new CustomEvent('firebase-ready'));
+    </script>
+
+    <style>
+        :root {
+            --natulab-main: #008f44;
+            --natulab-light: #a2d216;
+            --bg-color: #f8fafc;
+        }
+
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: var(--bg-color); 
+            overflow-x: hidden;
+            color: #0f172a;
+        }
+        
+        .natulab-gradient { background: linear-gradient(135deg, var(--natulab-main) 0%, var(--natulab-light) 100%); }
+        
+        /* Premium Glassmorphism */
+        .glass-panel { 
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8); 
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05); 
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Interactive Cards */
+        .card-hover-effect {
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .card-hover-effect:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 40px 80px -12px rgba(0, 143, 68, 0.08); 
+            border-color: rgba(0, 143, 68, 0.1);
+        }
+
+        .natulab-600 { color: var(--natulab-main); }
+        .border-natulab-600 { border-color: var(--natulab-main); }
+        
+        .dropdown-shadow {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+
+        .pattern-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(var(--natulab-main) 0.5px, transparent 0.5px), 
+                radial-gradient(var(--natulab-main) 0.5px, transparent 0.5px);
+            background-size: 32px 32px; 
+            background-position: 0 0, 16px 16px;
+            opacity: 0.015; 
+            pointer-events: none; 
+            z-index: -1;
+        }
+
+        /* Nav Tab Magic */
+        .nav-tab {
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Beautiful Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 100%; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.1); }
+        
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Custom Premium Scrollbar */
+        .scrollbar-style::-webkit-scrollbar { height: 8px; width: 8px; }
+        .scrollbar-style::-webkit-scrollbar-track { background: rgba(0,0,0,0.02); border-radius: 10px; }
+        .scrollbar-style::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; border: 2px solid white; }
+        .scrollbar-style::-webkit-scrollbar-thumb:hover { background: var(--natulab-main); }
+
+        .mask-linear-fade {
+            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+        }
+
+        /* TV MODE STYLES */
+        body.tv-mode { overflow: hidden !important; }
+        body.tv-mode .hide-on-tv { display: none !important; }
+        body.tv-mode main { margin: 0 !important; padding: 4vh 8vw !important; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        body.tv-mode .tv-slide-container { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; min-height: 0; width: 100%; max-width: 1400px; margin: 0 auto; }
+        
+        .progress-bar-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 6px; background: rgba(0,0,0,0.05); z-index: 200;
+        }
+        .progress-bar-fill {
+            height: 100%; height: 100%; background: var(--natulab-light); transition: width 0.1s linear;
+        }
+    </style>
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body x-data="financeApp" class="antialiased min-h-screen">
+    <div class="pattern-overlay"></div>
+
+    <!-- TELA DE LOGIN/CADASTRO (Somente se não estiver logado) -->
+    <div x-show="!user" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 flex flex-col items-center">
+            <img src="./css/logo-removebg-preview.png" class="h-20 mb-6" alt="Logo Natulab">
+            <h2 class="text-2xl font-black text-slate-800 mb-2" x-text="isRegistering ? 'Criar Nova Conta' : 'Acesso Corporativo'"></h2>
+            <p class="text-slate-500 text-sm mb-8 text-center uppercase tracking-widest font-bold">Natulab Financeiro</p>
+            
+            <form @submit.prevent="isRegistering ? register() : login()" class="w-full space-y-5">
+                <div x-show="authError" class="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold border border-red-100 animate-pulse" x-text="authError"></div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">E-mail de Acesso</label>
+                    <input type="email" x-model="loginEmail" required class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-natulab-600 transition-all font-medium" placeholder="E-mail">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Senha</label>
+                    <input type="password" x-model="loginPass" required class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-natulab-600 transition-all font-medium" placeholder="••••••••">
+                </div>
+                <div x-show="isRegistering" x-transition>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Confirmar Senha</label>
+                    <input type="password" x-model="loginPassConfirm" :required="isRegistering" class="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-natulab-600 transition-all font-medium" placeholder="••••••••">
+                </div>
+                
+                <button type="submit" :disabled="loading" class="w-full natulab-gradient text-white py-4 rounded-2xl font-bold shadow-xl hover:scale-[1.02] transform transition-all disabled:opacity-50">
+                    <span x-show="!loading" x-text="isRegistering ? 'Cadastrar Agora' : 'Entrar no Sistema'"></span>
+                    <span x-show="loading">Aguarde...</span>
+                </button>
+
+                <div class="relative flex items-center py-2">
+                    <div class="flex-grow border-t border-slate-100"></div>
+                    <span class="flex-shrink mx-4 text-[10px] font-black text-slate-300 uppercase tracking-widest">ou acesse com</span>
+                    <div class="flex-grow border-t border-slate-100"></div>
+                </div>
+
+                <button type="button" @click="loginWithGoogle" :disabled="loading" class="w-full bg-white border border-slate-200 text-slate-600 py-4 rounded-2xl font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-3 active:scale-95">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5" alt="Google">
+                    <span x-text="isRegistering ? 'Cadastrar com Google' : 'Entrar com Google'"></span>
+                </button>
+
+                <div class="text-center pt-4">
+                    <button type="button" @click="toggleAuthMode" class="text-xs font-bold text-slate-500 hover:text-natulab-600 transition-colors">
+                        <span x-text="isRegistering ? 'Já tem conta? Faça Login' : 'Não tem conta? Cadastrar-se'"></span>
+                    </button>
+                </div>
+            </form>
+            <p class="mt-8 text-xs text-slate-400 font-medium">Uso restrito a funcionários autorizados.</p>
+        </div>
+    </div>
+    
+    <!-- TELA DE VERIFICAÇÃO DE E-MAIL -->
+    <div x-show="isWaitingVerification" class="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md" x-transition style="display: none;">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 flex flex-col items-center text-center">
+            <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            </div>
+            <h2 class="text-2xl font-black text-slate-800 mb-2">Verifique seu E-mail</h2>
+            <p class="text-slate-500 text-sm mb-8">Enviamos um <strong>link de ativação</strong> para <strong class="text-slate-700" x-text="user?.email"></strong>. <br> Clique no link recebido em seu Outlook para liberar seu acesso.</p>
+            
+            <div class="w-full space-y-4">
+                <button @click="checkVerification" class="w-full natulab-gradient text-white py-4 rounded-2xl font-bold shadow-xl hover:scale-[1.02] transform transition-all">
+                    Já verifiquei o e-mail
+                </button>
+                <button @click="resendVerification" class="text-xs font-bold text-slate-500 hover:text-natulab-600 transition-colors">
+                    Não recebeu? Reenviar E-mail
+                </button>
+            </div>
+            
+            <button @click="logout" class="mt-8 text-xs font-bold text-red-500 uppercase tracking-widest">Sair do Sistema</button>
+        </div>
+    </div>
+
+    <!-- DASHBOARD PRINCIPAL (Só aparece se logado) -->
+    <div x-show="user" class="relative z-10" style="display: none;" @scroll.window="isScrolled = window.pageYOffset > 50">
+        
+        <!-- Header -->
+        <header class="transition-all duration-500 sticky top-0 z-50 w-full flex justify-between items-center" 
+                :class="{
+                    'tv-mode-header': tvMode, 
+                    'bg-white border-b border-slate-200 py-4 px-10 shadow-lg': isScrolled && !tvMode,
+                    'glass-panel p-6 rounded-2xl border-b-4 border-natulab-600 mx-auto max-w-[1600px]': !isScrolled && !tvMode
+                }">
+            <div class="flex flex-col items-center justify-center relative" :class="tvMode ? 'mx-auto' : ''">
+                <img src="./css/logo-removebg-preview.png" alt="Logo Natulab Oficial" class="h-20 object-contain" style="margin-bottom: -10px;">
+                <p class="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]" style="color: #4A4A4A;">Gestão Financeira</p>
+            </div>
+            
+            <div class="flex items-center gap-6" x-show="!tvMode">
+                <!-- User Profile Dropdown -->
+                <div class="relative" x-data="{ open: false }" @click.away="open = false">
+                    <button @click="open = !open" class="flex items-center gap-3 p-2 pr-4 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group">
+                        <div class="w-10 h-10 rounded-xl natulab-gradient flex items-center justify-center text-white font-black shadow-md shadow-natulab-600/20 group-hover:scale-105 transition-transform">
+                            <span x-text="user?.email[0].toUpperCase()"></span>
+                        </div>
+                        <div class="text-left hidden md:block">
+                            <p class="text-xs font-black text-slate-800 leading-tight" x-text="user?.email.split('@')[0]"></p>
+                            <p class="text-[10px] font-bold text-slate-400" x-text="user?.email"></p>
+                        </div>
+                        <svg class="w-4 h-4 text-slate-400 transition-transform duration-300" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div x-show="open" 
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                         x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+                         class="absolute right-0 mt-3 w-64 bg-white rounded-3xl shadow-2xl border border-slate-100 py-4 z-50 dropdown-shadow"
+                         x-cloak>
+                        
+                        <div class="px-6 py-4 border-b border-slate-50 mb-2">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Logado como</p>
+                            <p class="text-xs font-bold text-slate-800 break-all" x-text="user?.email"></p>
+                        </div>
+
+                        <a href="#" class="flex items-center gap-3 px-6 py-3 text-sm font-bold text-slate-600 hover:text-natulab-600 hover:bg-slate-50 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                            Meu Perfil
+                        </a>
+                        
+                        <button @click="logout" class="w-full flex items-center gap-3 px-6 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors text-left">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2v-1"></path></svg>
+                            Sair do Sistema
+                        </button>
+                    </div>
+                </div>
+
+                <button type="button" x-show="isAdmin" @click="showNewContract = true" class="natulab-gradient hover:scale-105 transform text-white px-8 py-4 rounded-2xl shadow-xl shadow-natulab-600/20 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3">
+                    <div class="bg-white/20 p-1 rounded-lg">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    </div>
+                    Nova Conta
+                </button>
+            </div>
+
+            <!-- Botão Retorno TV -->
+            <button x-show="tvMode" @click="toggleTvMode()" 
+                    class="absolute top-6 right-6 bg-slate-800/80 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all flex items-center gap-3 backdrop-blur-md">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Voltar
+            </button>
+        </header>
+
+        <div class="max-w-[1600px] mx-auto px-6 space-y-8 pt-6">
+
+        <!-- Migration Assistant (Admin Only) -->
+        <div x-show="isAdmin && contracts.length === 0 && !tvMode" class="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-3xl text-white flex justify-between items-center shadow-2xl card-hover-effect border border-white/20">
+            <div>
+                <h3 class="font-black text-xl mb-1">Migração Natulab Financeiro</h3>
+                <p class="opacity-90 text-sm font-medium">Detectamos que esta é uma nova instalação. Certifique-se de que o <strong>FastAPI Backend</strong> está rodando na porta 8000 para sincronizar a base local antiga com a Nuvem Firebase.</p>
+            </div>
+            <button @click="migrateFromLocal" :disabled="loadingMigration" class="bg-white text-indigo-700 px-8 py-4 rounded-xl font-black hover:bg-indigo-50 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1">
+                <span x-show="!loadingMigration">Migrar Tudo Agora</span>
+                <span x-show="loadingMigration" class="animate-pulse">Baixando dados...</span>
+            </button>
+        </div>
+
+        <!-- Abas com Estilo Premium (Pílulas) -->
+        <div class="flex justify-center mt-4" x-show="!tvMode">
+            <nav class="flex gap-1 bg-white/50 backdrop-blur-md p-1.5 rounded-[2rem] shadow-sm border border-slate-100 mb-6">
+                <button @click="activeTab = 'contratos'" :class="activeTab === 'contratos' ? 'bg-slate-900 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-white/80 hover:text-slate-800'" class="px-10 py-3.5 rounded-[1.5rem] text-xs font-black transition-all flex items-center gap-3 uppercase tracking-[0.1em]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Contratos
+                </button>
+                <button @click="activeTab = 'relatorios'" :class="activeTab === 'relatorios' ? 'bg-slate-900 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-white/80 hover:text-slate-800'" class="px-10 py-3.5 rounded-[1.5rem] text-xs font-black transition-all flex items-center gap-3 uppercase tracking-[0.1em]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Dashboard
+                </button>
+                <template x-if="isAdmin">
+                    <button @click="activeTab = 'admin'" :class="activeTab === 'admin' ? 'bg-emerald-600 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-white/80 hover:text-slate-800'" class="px-10 py-3.5 rounded-[1.5rem] text-xs font-black transition-all flex items-center gap-3 uppercase tracking-[0.1em]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354l1.107 3.185h3.351l-2.711 1.969 1.035 3.185-2.782-2.022-2.782 2.022 1.035-3.185-2.711-1.969h3.351L12 4.354z"></path></svg>
+                        Acessos
+                    </button>
+                </template>
+            </nav>
+        </div>
+
+        <!-- TELA DE BLOQUEIO / AGUARDANDO APROVAÇÃO -->
+        <div x-show="isWaitingApproval && !isApproved && !isAdmin" class="py-12 flex items-center justify-center" x-cloak>
+            <div class="max-w-xl w-full text-center space-y-8 bg-white p-12 rounded-[2rem] shadow-2xl border border-slate-100">
+                <div class="w-24 h-24 bg-amber-100 text-amber-500 rounded-3xl flex items-center justify-center mx-auto text-5xl animate-pulse">
+                    ⏳
+                </div>
+                <div class="space-y-4">
+                    <h2 class="text-4xl font-black text-slate-800 tracking-tight">Acesso em Análise</h2>
+                    <p class="text-slate-500 text-lg leading-relaxed font-medium">
+                        Sua conta foi verificada, mas este ambiente contém dados sensíveis. <br>
+                        <span class="text-slate-800 font-bold">O Leonardo já foi avisado</span> e liberará seu acesso em instantes.
+                    </p>
+                </div>
+                <div class="pt-4">
+                    <button @click="logout()" class="text-slate-400 font-bold hover:text-slate-600 transition-colors uppercase tracking-widest text-xs">Sair e tentar mais tarde</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA ADMIN (Gestão de Acesso) -->
+        <div x-show="activeTab === 'admin' && isAdmin" class="space-y-8" x-cloak>
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h2 class="text-4xl font-black text-slate-800 tracking-tight">Gestão de Acesso</h2>
+                    <p class="text-slate-500 font-medium" x-text="'Total de ' + allUsers.length + ' registros encontrados na base de dados'"></p>
+                    <div class="flex items-center gap-4 mt-2">
+                        <p class="text-[10px] text-slate-400 font-mono" x-text="'Seu ID atual: ' + (user ? user.uid : 'Não logado')"></p>
+                        <button @click="loadAllUsers()" class="text-[9px] bg-slate-100 px-2 py-1 rounded hover:bg-slate-200 font-black uppercase text-slate-500">Forçar Atualização</button>
+                    </div>
+                </div>
+                
+                <!-- Ferramenta de Emergência: Adição Manual -->
+                <div class="bg-amber-50 border border-amber-100 p-6 rounded-2xl flex flex-col md:flex-row gap-4 items-center">
+                    <div class="flex-1">
+                        <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Diagnóstico de Usuário Faltante</p>
+                        <p class="text-xs text-amber-700 font-medium">Se um usuário não aparece na lista abaixo, insira o ID dele aqui (disponível no Firebase Auth ou no Painel dele) para forçar o registro.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" x-model="debugUID" class="bg-white border border-amber-200 rounded-xl px-4 py-2 text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500" placeholder="Cole o UID do usuário...">
+                        <button @click="forceCreateUserMetadata()" class="bg-amber-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all">Forçar Registro</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50">
+                            <th class="p-8 text-xs font-black text-slate-400 uppercase tracking-widest">Usuário</th>
+                            <th class="p-8 text-xs font-black text-slate-400 uppercase tracking-widest">Cargo</th>
+                            <th class="p-8 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                            <th class="p-8 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-if="allUsers.length === 0">
+                            <tr>
+                                <td colspan="4" class="p-12 text-center text-slate-400 font-medium italic">
+                                    Nenhum usuário cadastrado.
+                                </td>
+                            </tr>
+                        </template>
+                        <template x-for="uData in allUsers" :key="uData.id">
+                            <tr class="border-t border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                <td class="p-8">
+                                    <div class="font-black text-slate-700" x-text="uData.email || 'Usuário Sem E-mail'"></div>
+                                    <div class="text-[9px] text-slate-400 uppercase font-black" x-text="'ID: ' + uData.id"></div>
+                                </td>
+                                <td class="p-8">
+                                    <span :class="uData.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'" 
+                                          class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest"
+                                          x-text="uData.role || 'viewer'"></span>
+                                </td>
+                                <td class="p-8">
+                                    <div class="flex items-center gap-2">
+                                        <div :class="uData.is_approved ? 'bg-emerald-500' : 'bg-amber-500'" class="w-2 h-2 rounded-full"></div>
+                                        <span class="text-xs font-bold text-slate-500" x-text="uData.is_approved ? 'Aprovado' : 'Aguardando'"></span>
+                                    </div>
+                                </td>
+                                <td class="p-8 text-right space-x-2">
+                                    <template x-if="!uData.is_approved">
+                                        <button @click="updateUser(uData.id, { is_approved: true })" 
+                                                class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-200 transition-all active:scale-95">
+                                            Aprovar
+                                        </button>
+                                    </template>
+                                    <template x-if="uData.is_approved && uData.role !== 'admin'">
+                                        <button @click="updateUser(uData.id, { role: 'admin' })" 
+                                                class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-purple-200 transition-all active:scale-95">
+                                            Tornar Admin
+                                        </button>
+                                    </template>
+                                    <template x-if="uData.id !== user.uid">
+                                        <button @click="deleteUser(uData.id)" 
+                                                class="bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95">
+                                            Remover
+                                        </button>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Aba de Contratos (Início) -->
+
+
+        <!-- Main Content (Lista de Contratos) -->
+        <main x-show="activeTab === 'contratos' && (isApproved || isAdmin)" class="grid gap-6">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Busca Principal -->
+                <div class="relative group flex-1">
+                    <input type="text" x-model="searchQuery" class="w-full bg-white border border-slate-200 rounded-3xl pl-14 pr-6 py-5 text-slate-800 outline-none focus:border-natulab-600 focus:ring-4 focus:ring-natulab-600/5 shadow-sm transition-all text-sm font-bold" placeholder="Pesquisar vínculos operacionais (ex: Empréstimo, Capital de Giro)...">
+                    <div class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-natulab-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                </div>
+
+                <!-- Controles de Ordenação -->
+                <div class="flex items-center gap-3 bg-white p-2 rounded-3xl border border-slate-100 shadow-sm">
+                    <div class="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
+                        <select x-model="sortBy" class="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-slate-600 focus:ring-0 cursor-pointer">
+                            <option value="description">Nome</option>
+                            <option value="total_value">Valor Total</option>
+                            <option value="number_of_installments">Parcelas</option>
+                        </select>
+                    </div>
+                    <button @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'" 
+                            class="p-4 rounded-2xl hover:bg-slate-50 transition-all text-slate-400 hover:text-natulab-600"
+                            :title="sortOrder === 'asc' ? 'Crescente' : 'Decrescente'">
+                        <svg class="w-5 h-5 transition-transform duration-300" :class="sortOrder === 'desc' ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Legenda de Status -->
+            <div class="flex flex-wrap items-center gap-6 px-4 py-2 opacity-80">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-natulab"></div>
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Liquidado (Pago)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pendente (Em Aberto)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></div>
+                    <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Em Atraso</span>
+                </div>
+            </div>
+
+            <template x-for="contract in filteredContracts" :key="contract.id">
+                <div class="glass-panel rounded-[2.5rem] border border-slate-100 shadow-sm card-hover-effect relative overflow-hidden group mb-4">
+                    <!-- Cabeçalho Clickável para Expandir -->
+                    <div @click="toggleContract(contract.id)" 
+                         class="p-10 cursor-pointer flex justify-between items-center relative z-20 hover:bg-slate-50/50 transition-all">
+                        <div class="flex items-center gap-8">
+                            <!-- Ícone de Status/Expansão -->
+                            <div class="w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-inner"
+                                 :class="expandedContracts.includes(contract.id) ? 'bg-natulab-600 text-white' : 'bg-slate-100 text-slate-400'">
+                                <svg class="w-6 h-6 transform transition-transform duration-300" :class="expandedContracts.includes(contract.id) ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </div>
+                            
+                            <div>
+                                <div class="flex items-center gap-4 mb-1">
+                                    <h3 class="text-3xl font-black text-slate-800 tracking-tight" x-text="formatContractName(contract.description)"></h3>
+                                    
+                                    <!-- Botão de Informações (Solicitado) -->
+                                    <button @click.stop="openContractInfo(contract)" 
+                                            class="text-slate-400 hover:text-natulab-600 p-2 hover:bg-natulab-600/5 rounded-full transition-all group/info"
+                                            title="Ver detalhes e garantias">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </button>
+
+                                    <span :class="contract.calculation_type === 'CDI' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-green-50 text-natulab-600 border-green-100'" class="text-[10px] px-4 py-1.5 border rounded-full font-black uppercase tracking-[0.15em] shadow-sm" x-text="contract.calculation_type"></span>
+                                </div>
+                                <div class="flex items-center gap-6">
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                                        Total Pago: <span class="text-natulab-600 font-black" x-text="formatCurrency(contract.installments.filter(i=>isPaid(i.status)).reduce((s,i)=>s+parseFloat(i.value||0)+parseFloat(i.interest||0),0))"></span>
+                                    </p>
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                                        Progresso: <span class="text-slate-600 font-black" x-text="Math.round(contract.installments.filter(i=>isPaid(i.status)).length / contract.installments.length * 100) + '%'"></span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-4" x-show="canEdit">
+                             <button @click.stop="deleteContract(contract.id)" class="text-slate-300 hover:text-red-500 p-3 hover:bg-red-50 rounded-2xl transition-all relative z-30" title="Mover para Auditoria Excluída">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Conteúdo Expansível -->
+                    <div x-show="expandedContracts.includes(contract.id)" 
+                         x-collapse 
+                         class="px-10 pb-10 border-t border-slate-50 relative z-10">
+                        
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-10 my-10">
+                            <div class="space-y-1">
+                                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block">Principal Pago</span>
+                                <p class="text-3xl font-black text-natulab-600 tracking-tighter" x-text="formatCurrency(contract.installments.filter(i=>isPaid(i.status)).reduce((s,i)=>s+parseFloat(i.value||0),0))"></p>
+                            </div>
+                            <div class="space-y-1">
+                                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block">Juros Pagos</span>
+                                <p class="text-3xl font-black text-amber-500 tracking-tighter" x-text="formatCurrency(contract.installments.filter(i=>isPaid(i.status)).reduce((s,i)=>s+parseFloat(i.interest||0),0))"></p>
+                            </div>
+                            <div class="lg:col-span-2 space-y-3">
+                                <div class="flex justify-between items-end">
+                                    <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block">Status da Amortização</span>
+                                    <span class="text-xs font-black text-natulab-600" x-text="contract.installments.filter(i=>isPaid(i.status)).length + ' de ' + contract.installments.length"></span>
+                                </div>
+                                <div class="h-4 bg-slate-100 rounded-full overflow-hidden p-1 shadow-inner border border-slate-50">
+                                    <div class="h-full natulab-gradient rounded-full relative transition-all duration-1000" :style="`width: ${(contract.installments.filter(i=>isPaid(i.status)).length / contract.installments.length * 100)}%` ">
+                                        <div class="absolute inset-0 bg-white/20 w-full h-full transform skew-x-12 -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LISTA DE PARCELAS (VERTICAL) -->
+                        <div class="mt-8 space-y-3">
+                            <!-- Cabeçalho da Lista -->
+                            <div class="grid grid-cols-12 px-6 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                <div class="col-span-1">#</div>
+                                <div class="col-span-3">Vencimento</div>
+                                <div class="col-span-3">Valor Total</div>
+                                <div class="col-span-2 text-center">Status</div>
+                                <div class="col-span-3 text-right flex items-center justify-end gap-2">
+                                    <span>Ações</span>
+                                    <button @click.stop="installmentsReverse = !installmentsReverse" 
+                                            class="p-1 px-2 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-natulab-600 flex items-center gap-1 border border-transparent hover:border-slate-200"
+                                            :title="installmentsReverse ? 'Mudar para Ordem Crescente' : 'Mudar para Ordem Decrescente'">
+                                        <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="installmentsReverse ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <template x-for="(inst, index) in [...contract.installments].sort((a, b) => {
+                                let numA = parseInt(a.installment_number || a.number || 0);
+                                let numB = parseInt(b.installment_number || b.number || 0);
+                                return installmentsReverse ? numB - numA : numA - numB;
+                            })" :key="inst.id">
+                                <div class="grid grid-cols-12 items-center px-6 py-4 rounded-2xl border transition-all hover:shadow-md group/inst relative z-30"
+                                     :class="isPaid(inst.status) ? 'bg-natulab-600/5 border-natulab-600/10' : isOverdue(inst.due_date, inst.status) ? 'bg-red-50 border-red-100' : 'bg-white border-slate-100 hover:border-natulab-600/30'">
+                                    
+                                    <div class="col-span-1 text-xs font-black text-slate-400" x-text="(inst.installment_number || inst.number || 0).toString().padStart(2, '0')"></div>
+                                    
+                                    <div class="col-span-3">
+                                        <span class="text-xs font-black text-slate-600" x-text="formatDate(inst.due_date)"></span>
+                                    </div>
+                                    
+                                    <div class="col-span-3 flex flex-col">
+                                        <span class="text-sm font-black text-slate-800" x-text="formatCurrency(parseFloat(inst.value||0) + parseFloat(inst.interest||0))"></span>
+                                        <span class="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">
+                                            Prin: <span x-text="formatCurrency(inst.value)"></span> | Juros: <span x-text="formatCurrency(inst.interest)"></span>
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="col-span-2 flex justify-center">
+                                        <span class="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1.5 border" 
+                                              :class="isPaid(inst.status) ? 'bg-natulab text-white border-natulab shadow-sm' : isOverdue(inst.due_date, inst.status) ? 'bg-rose-500 text-white border-rose-600 animate-pulse' : 'bg-slate-100 text-slate-600 border-slate-200'" 
+                                        >
+                                            <!-- Ícone Pago -->
+                                            <svg x-show="isPaid(inst.status)" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                                            <!-- Ícone Atrasado -->
+                                            <svg x-show="isOverdue(inst.due_date, inst.status)" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                            <!-- Ícone Pendente -->
+                                            <svg x-show="inst.status==='PENDING' && !isOverdue(inst.due_date, inst.status)" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            
+                                            <span x-text="inst.status==='PAID' ? 'Pago' : isOverdue(inst.due_date, inst.status) ? 'Atrasado' : 'Pendente'"></span>
+                                                               <div class="col-span-3 flex justify-end gap-2 relative z-40">
+                                        <!-- Atalho Quitar -->
+                                        <button x-show="canEdit" @click.stop="togglePayStatus(inst)" 
+                                                class="p-2 rounded-xl transition-all shadow-sm flex items-center justify-center relative z-50"
+                                                :class="inst.status==='PAID' ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' : 'bg-green-100 text-green-600 hover:bg-green-200'"
+                                                :title="inst.status==='PAID' ? 'Reverter para Aberto' : 'Marcar como Pago'">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path x-show="inst.status!=='PAID'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                <path x-show="inst.status==='PAID'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3"></path>
+                                            </svg>
+                                        </button>
+
+                                        <!-- Botão Gerenciar -->
+                                        <button @click.stop="openEditModal(inst)" 
+                                                class="bg-slate-800 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-natulab-600 transition-all shadow-lg shadow-slate-200 relative z-50">
+                                            <span x-text="canEdit ? 'Gerenciar' : 'Ver Detalhes'"></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </main>
+
+        <!-- DASHBOARD TAB -->
+        <main x-show="activeTab === 'relatorios' && (isApproved || isAdmin)" x-transition x-cloak>
+             <div class="glass-panel p-10 rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden relative">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-natulab-600/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 relative z-10 gap-6">
+                    <div>
+                        <h2 class="text-4xl font-black text-slate-800 tracking-tight mb-2">Monitoramento de Fluxo</h2>
+                        <p class="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Consolidado Corporativo Natulab</p>
+                    </div>
+                    <div class="flex items-center gap-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                        <div class="bg-blue-500 p-2 rounded-xl text-white shadow-lg shadow-blue-500/20">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-tight">Valores baseados em <br><span class="text-blue-600">títulos quitados</span></span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                    <!-- Cards de Resumo -->
+                    <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="bg-slate-900 p-10 rounded-[2rem] shadow-2xl relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-br from-natulab-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div class="flex items-center gap-4 mb-6">
+                                <div class="w-12 h-12 bg-natulab-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-natulab-600/30">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <span class="text-[10px] font-black text-natulab-light uppercase tracking-[0.3em]">Capital Amortizado</span>
+                            </div>
+                            <h4 class="text-5xl text-white font-black tracking-tighter" x-text="formatCurrency(dashboardMetrics.principal)"></h4>
+                            <p class="mt-4 text-slate-500 text-[10px] font-bold uppercase tracking-widest">Valor principal liquidado no período</p>
+                        </div>
+
+                        <div class="bg-white p-10 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group card-hover-effect">
+                            <div class="flex items-center gap-4 mb-6">
+                                <div class="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                                </div>
+                                <span class="text-[10px] font-black text-amber-600 uppercase tracking-[0.3em]">Juros Liquidados</span>
+                            </div>
+                            <h4 class="text-5xl text-slate-800 font-black tracking-tighter" x-text="formatCurrency(dashboardMetrics.interest)"></h4>
+                            <p class="mt-4 text-slate-400 text-[10px] font-bold uppercase tracking-widest">Juros pagos sobre o capital</p>
+                        </div>
+                        
+                        <!-- Mini Stats Row -->
+                        <div class="md:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-6">
+                            <div class="bg-blue-50/50 p-6 rounded-3xl border border-blue-100/50">
+                                <span class="text-[9px] font-black text-blue-600 uppercase tracking-widest block mb-1">Contratos</span>
+                                <span class="text-2xl font-black text-slate-800" x-text="contracts.length"></span>
+                            </div>
+                            <div class="bg-purple-50/50 p-6 rounded-3xl border border-purple-100/50">
+                                <span class="text-[9px] font-black text-purple-600 uppercase tracking-widest block mb-1">Parcelas Pagas</span>
+                                <span class="text-2xl font-black text-slate-800" x-text="contracts.reduce((acc, c) => acc + c.installments.filter(i => i.status === 'PAID').length, 0)"></span>
+                            </div>
+                            <div class="bg-green-50/50 p-6 rounded-3xl border border-green-100/50 col-span-2 md:col-span-1">
+                                <span class="text-[9px] font-black text-natulab-600 uppercase tracking-widest block mb-1">Total Movimentado</span>
+                                <span class="text-2xl font-black text-slate-800" x-text="formatCurrency(dashboardMetrics.principal + dashboardMetrics.interest)"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filtros Laterais Reflexivos -->
+                    <div class="lg:col-span-4 space-y-6">
+                        <!-- Seletor de Período -->
+                        <div class="bg-slate-50/80 backdrop-blur-sm p-8 rounded-[2rem] border border-slate-100 shadow-inner">
+                            <div class="flex items-center gap-3 mb-6">
+                                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Período de Análise</label>
+                            </div>
+                            <!-- Menu Customizado de Período -->
+                            <div class="relative" x-data="{ open: false }">
+                                <button @click="open = !open" class="w-full bg-white px-6 py-4 rounded-2xl border-none shadow-sm flex items-center justify-between group hover:shadow-md transition-all">
+                                    <span class="font-black text-slate-700" x-text="reportPeriod === 'all' ? 'Todo o Histórico' : reportPeriod === '3' ? 'Últimos 3 Meses' : reportPeriod === '6' ? 'Últimos 6 Meses' : reportPeriod === '12' ? 'Último Ano' : 'Período Específico'"></span>
+                                    <svg class="w-4 h-4 text-slate-400 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                                <div x-show="open" @click.away="open = false" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" class="absolute z-50 w-full mt-2 bg-white rounded-[1.5rem] shadow-2xl border border-slate-50 overflow-hidden">
+                                    <button @click="reportPeriod = 'all'; open = false" class="w-full text-left px-6 py-4 hover:bg-slate-50 font-bold text-slate-600 transition-colors">Todo o Histórico</button>
+                                    <button @click="reportPeriod = '3'; open = false" class="w-full text-left px-6 py-4 hover:bg-slate-50 font-bold text-slate-600 transition-colors">Últimos 3 Meses</button>
+                                    <button @click="reportPeriod = '6'; open = false" class="w-full text-left px-6 py-4 hover:bg-slate-50 font-bold text-slate-600 transition-colors">Últimos 6 Meses</button>
+                                    <button @click="reportPeriod = '12'; open = false" class="w-full text-left px-6 py-4 hover:bg-slate-50 font-bold text-slate-600 transition-colors">Último Ano</button>
+                                    <button @click="reportPeriod = 'custom'; open = false" class="w-full text-left px-6 py-4 hover:bg-slate-50 font-bold text-slate-600 transition-colors">Período Específico</button>
+                                </div>
+                            </div>
+
+                            <!-- Campos de Data para Período Específico -->
+                            <div x-show="reportPeriod === 'custom'" x-transition class="space-y-4 pt-2 border-t border-slate-100 mt-2">
+                                <div class="space-y-1">
+                                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Data Início</label>
+                                    <input type="date" x-model="reportStartDate" class="w-full bg-white p-3 rounded-xl border border-slate-100 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-natulab-500">
+                                </div>
+                                <div class="space-y-1">
+                                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Data Fim</label>
+                                    <input type="date" x-model="reportEndDate" class="w-full bg-white p-3 rounded-xl border border-slate-100 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-natulab-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filtro de Contratos (Expansível e Pesquisável) -->
+                        <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden transition-all duration-500"
+                             :class="isFilterMenuOpen ? 'max-h-[600px]' : 'max-h-[85px]'">
+                            <div @click="isFilterMenuOpen = !isFilterMenuOpen" 
+                                 class="p-8 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-natulab-500 transition-transform" :class="isFilterMenuOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Filtro de Contratos</label>
+                                </div>
+                                <span class="text-[10px] bg-slate-100 px-2 py-1 rounded text-slate-400 font-black" x-text="selectedContractsForDashboard.length > 0 ? selectedContractsForDashboard.length : 'Todos'"></span>
+                            </div>
+                            
+                            <div class="px-8 pb-8 space-y-4">
+                                <!-- Busca interna no filtro -->
+                                <div class="relative">
+                                    <input type="text" x-model="filterSearchQuery" 
+                                           class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-xs font-bold placeholder-slate-400 focus:ring-2 focus:ring-natulab-500 outline-none" 
+                                           placeholder="Pesquisar contrato...">
+                                    <svg class="w-4 h-4 text-slate-300 absolute right-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+
+                                <div class="space-y-2 max-h-64 overflow-y-auto pr-2 scrollbar-style">
+                                    <template x-for="c in contracts.filter(x => !x.deleted_at && formatContractName(x.description).toLowerCase().includes(filterSearchQuery.toLowerCase()))" :key="c.id">
+                                        <label :class="selectedContractsForDashboard.includes(c.id) ? 'bg-natulab-50 border-natulab-200' : 'bg-slate-50/50 border-transparent hover:bg-slate-50'" 
+                                               class="flex items-center p-3 rounded-2xl border cursor-pointer transition-all group">
+                                            <input type="checkbox" :value="c.id" x-model="selectedContractsForDashboard" class="hidden">
+                                            <div class="w-4 h-4 rounded border-2 flex items-center justify-center mr-3 transition-all"
+                                                 :class="selectedContractsForDashboard.includes(c.id) ? 'bg-natulab-600 border-natulab-600' : 'bg-white border-slate-200'">
+                                                <svg x-show="selectedContractsForDashboard.includes(c.id)" class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                                            </div>
+                                            <span class="text-[11px] font-bold text-slate-600 truncate flex-1" x-text="formatContractName(c.description)"></span>
+                                        </label>
+                                    </template>
+                                </div>
+
+                                <button x-show="selectedContractsForDashboard.length > 0" 
+                                        @click="selectedContractsForDashboard = []"
+                                        class="w-full py-2 text-[9px] font-black uppercase text-slate-400 hover:text-red-500 transition-colors border-t border-slate-50 mt-2">
+                                    Limpar Seleção
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cronograma Bancário 2026-2031 (Novo Relatório Consolidado) -->
+                    <div class="lg:col-span-12 mt-6">
+                        <div class="bg-white p-6 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+                            <div class="flex items-center justify-between mb-8">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-xl">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-2xl font-black text-slate-800 tracking-tight">Cronograma Bancário Natulab</h3>
+                                        <p class="text-[11px] font-black text-slate-500 uppercase tracking-widest">Projeção Estratégica 2026 — 2031</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-blue-50 px-6 py-2 rounded-2xl border border-blue-100 flex items-center gap-4">
+                                        <div class="flex flex-col">
+                                            <span class="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-none">Total Projetado:</span>
+                                            <span class="text-lg font-black text-slate-800" x-text="paymentSchedule.summary ? formatCurrency(paymentSchedule.summary.total_global) : 'Carregando...'"></span>
+                                        </div>
+                                        <template x-if="selectedBank">
+                                            <button @click="toggleBankSelection(null)" class="bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 transition-all shadow-md">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="chartLongTerm" class="w-full h-[400px]"></div>
+                            
+                            <!-- Filtros Estratégicos -->
+                            <div class="space-y-4 mt-8 pt-8 border-t border-slate-50">
+                                <!-- Barra de Bancos (Credores) -->
+                                <div class="flex overflow-x-auto gap-4 pb-4 scrollbar-style scroll-smooth">
+                                    <template x-if="paymentSchedule.byBank">
+                                        <template x-for="(value, bank) in paymentSchedule.byBank" :key="bank">
+                                            <button 
+                                                @click="toggleBankSelection(bank)"
+                                                :class="selectedBank === bank ? 'bg-blue-600 text-white shadow-lg scale-105' : 'bg-slate-50/80 text-slate-600 hover:bg-slate-100'"
+                                                class="flex flex-col items-start px-6 py-3 rounded-2xl transition-all border border-transparent shadow-sm flex-shrink-0 min-w-[140px]">
+                                                <span class="text-[8px] font-black uppercase tracking-[0.2em] mb-1" :class="selectedBank === bank ? 'text-blue-50' : 'text-slate-400'" x-text="bank"></span>
+                                                <span class="text-xs font-black" x-text="formatCurrency(Object.values(paymentSchedule.byBank[bank]).reduce((a, b) => a + b, 0))"></span>
+                                            </button>
+                                        </template>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div x-show="!contracts.length && !corpData.ar.length" class="py-20 text-center space-y-4">
+                    <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-3xl opacity-50">📊</div>
+                    <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">Aguardando dados para gerar insights detalhados...</p>
+                </div>
+             </div>
+        </main>
+    </div>
+
+    <!-- MODAL DE EDIÇÃO (Parcela) -->
+    <template x-if="showEditModal">
+        <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md" x-transition>
+            <div @click.away="showEditModal = false" class="bg-white w-full max-w-lg rounded-[2.5rem] p-10 shadow-2xl border border-slate-100 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 natulab-gradient"></div>
+                
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-3xl font-black text-slate-800 tracking-tight">Gerenciar Parcela</h3>
+                    <button @click="showEditModal = false" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all font-black text-xl">&times;</button>
+                </div>
+
+                <form @submit.prevent="updateInstallment()" class="space-y-8">
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Principal (R$)</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                <input type="number" step="0.01" x-model="editData.value" class="w-full bg-slate-50 pl-10 pr-4 py-4 rounded-2xl border border-transparent focus:border-natulab-600 focus:bg-white outline-none font-black text-slate-700 transition-all">
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Juros (R$)</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</span>
+                                <input type="number" step="0.01" x-model="editData.interest" class="w-full bg-slate-50 pl-10 pr-4 py-4 rounded-2xl border border-transparent focus:border-amber-500 focus:bg-white outline-none font-black text-amber-600 transition-all">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 text-center mb-2">Estado do Pagamento</label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button type="button" @click="editData.status = 'PENDING'" :class="editData.status === 'PENDING' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'" class="py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Pendente</button>
+                            <button type="button" @click="editData.status = 'PAID'" :class="editData.status === 'PAID' ? 'bg-natulab-600 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'" class="py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Pago</button>
+                            <button type="button" @click="editData.status = 'CANCELLED'" :class="editData.status === 'CANCELLED' ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'" class="py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Cancelado</button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vencimento Programado</label>
+                        <input type="date" x-model="editData.due_date" class="w-full bg-slate-50 p-4 rounded-2xl border border-transparent focus:border-natulab-600 focus:bg-white outline-none font-black text-slate-700 transition-all">
+                    </div>
+
+                    <div class="pt-6 flex gap-4">
+                        <button type="submit" class="w-full natulab-gradient text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-natulab-600/20 hover:scale-[1.02] transform transition-all text-xs uppercase tracking-[0.2em]">Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    <!-- MODAL NOVO CONTRATO -->
+    <div x-show="showNewContract"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+         style="display: none;">
+        <div @click.away="showNewContract = false" class="bg-white w-full max-w-2xl rounded-3xl p-10 shadow-2xl border border-slate-100">
+                <h3 class="text-3xl font-black text-slate-800 mb-8">Novo Vínculo Operacional</h3>
+                
+                <form @submit.prevent="createContract()" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tipo de Cálculo</label>
+                            <select x-model="newContract.calculation_type" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold">
+                                <option value="PRE_FIXED">Pré-Fixado (Rateio)</option>
+                                <option value="CDI">Pós-Fixado (CDI / Variável)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Descrição</label>
+                            <input type="text" x-model="newContract.description" required class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold" placeholder="Ex: Empréstimo Capital de Giro">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6" x-show="newContract.calculation_type === 'PRE_FIXED'">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Valor Total (R$)</label>
+                            <input type="number" step="0.01" x-model="newContract.total_value" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Total Juros (R$)</label>
+                            <input type="number" step="0.01" x-model="newContract.total_interest_expected" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold">
+                        </div>
+                         <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Parcelas</label>
+                            <input type="number" x-model="newContract.number_of_installments" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold">
+                        </div>
+                    </div>
+
+                    <div x-show="newContract.calculation_type === 'CDI'">
+                         <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Número de Parcelas Inicial</label>
+                         <input type="number" x-model="newContract.number_of_installments" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold" placeholder="Ex: 12">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Data de Primeira Parcela</label>
+                        <input type="date" x-model="newContract.start_date" required class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold">
+                    </div>
+
+                    <!-- Novos campos solicitados -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Garantias (Opcional)</label>
+                            <textarea x-model="newContract.guarantee_info" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-medium text-sm" rows="3" placeholder="Ex: Aval, Imóvel..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Descrição Detalhada (Opcional)</label>
+                            <textarea x-model="newContract.detailed_description" class="w-full bg-slate-50 p-4 rounded-xl border border-slate-100 font-medium text-sm" rows="3" placeholder="Detalhes técnicos da operação..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 flex gap-4">
+                        <button type="button" @click="showNewContract = false" class="flex-1 text-slate-500 font-bold py-4 rounded-2xl hover:bg-slate-50">Cancelar</button>
+                        <button type="submit" class="flex-1 natulab-gradient text-white font-bold py-4 rounded-2xl shadow-xl">Registrar Vínculo</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    <!-- MODAL INFORMAÇÕES E GARANTIAS (SOLICITADO) -->
+    <template x-if="showContractInfo">
+        <div x-show="showContractInfo"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 active:scale-95"
+             x-transition:enter-end="opacity-100 active:scale-100"
+             class="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xl">
+            <div @click.away="showContractInfo = false" 
+                 class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl border border-slate-100 relative overflow-hidden flex flex-col max-h-[90vh]">
+                
+                <!-- Header do Modal -->
+                <div class="px-10 py-8 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
+                    <div>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-1">Detalhes Operacionais</span>
+                        <h3 class="text-2xl font-black text-slate-800 tracking-tight" x-text="selectedContractForInfo?.description"></h3>
+                    </div>
+                    <button @click="showContractInfo = false" class="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-all">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Conteúdo -->
+                <div class="p-10 space-y-8 overflow-y-auto flex-1 scrollbar-style">
+                    
+                    <!-- Bloco: Garantias -->
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                            </div>
+                            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest">Garantias Oferecidas</h4>
+                        </div>
+                        
+                        <div x-show="!isEditingInfo">
+                            <p class="text-slate-600 font-medium leading-relaxed bg-slate-50 p-6 rounded-2xl min-h-[80px]" 
+                               x-text="infoForm.guarantee_info || 'Nenhuma garantia informada para este contrato.'"></p>
+                        </div>
+                        <div x-show="isEditingInfo">
+                            <textarea x-model="infoForm.guarantee_info" 
+                                      class="w-full bg-slate-50 p-6 rounded-2xl border-2 border-slate-100 focus:border-natulab-600 outline-none text-slate-700 font-medium transition-all" 
+                                      rows="3" placeholder="Descreva as garantias (ex: Alienação fiduciária de imóveis, cessão de duplicatas...)"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Bloco: Descrição Detalhada -->
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                            </div>
+                            <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest">Descrição do Contrato</h4>
+                        </div>
+                        
+                        <div x-show="!isEditingInfo">
+                            <p class="text-slate-600 font-medium leading-relaxed bg-slate-50 p-6 rounded-2xl min-h-[120px]" 
+                               x-text="infoForm.detailed_description || 'Sem descrição complementar disponível.'"></p>
+                        </div>
+                        <div x-show="isEditingInfo">
+                            <textarea x-model="infoForm.detailed_description" 
+                                      class="w-full bg-slate-50 p-6 rounded-2xl border-2 border-slate-100 focus:border-natulab-600 outline-none text-slate-700 font-medium transition-all" 
+                                      rows="5" placeholder="Insira detalhes adicionais sobre o contrato, finalidade, taxas acessórias, etc."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer do Modal (Ações) -->
+                <div class="px-10 py-8 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                    <div>
+                        <template x-if="canEdit && !isEditingInfo">
+                            <button @click="isEditingInfo = true" class="flex items-center gap-2 text-natulab-600 font-black text-[10px] uppercase tracking-widest hover:underline px-2 py-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                Gerenciar Informações
+                            </button>
+                        </template>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <template x-if="isEditingInfo">
+                            <button @click="isEditingInfo = false" class="px-6 py-3 rounded-xl text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
+                        </template>
+                        <template x-if="isEditingInfo">
+                            <button @click="saveContractInfo()" :disabled="loading" 
+                                    class="px-8 py-3 bg-natulab-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-natulab-600/20 hover:scale-[1.05] transition-all flex items-center gap-2">
+                                <span x-show="!loading">Salvar Mudanças</span>
+                                <span x-show="loading" class="animate-pulse">Salvando...</span>
+                            </button>
+                        </template>
+                        <button @click="showContractInfo = false" x-show="!isEditingInfo" class="px-8 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('financeApp', () => ({
+                user: null,
+                isScrolled: false,
+                isApproved: false,
+                isRegistering: false,
+                isWaitingApproval: false,
+                pendingUsers: [],
+                isAdmin: false,
+                userRole: 'viewer', // 'admin' ou 'viewer'
+                get canEdit() { return this.isAdmin || this.userRole === 'admin'; },
+                isRegistering: false,
+                tvMode: false,
+                currentTvSlide: 0,
+                tvInterval: null,
+                tvProgress: 0,
+                isWaitingVerification: false,
+                loading: false,
+                loginEmail: '',
+                loginPass: '',
+                loginPassConfirm: '',
+                authError: '',
+                allUsers: [],
+                contracts: [],
+                searchQuery: '',
+                reportPeriod: 'all',
+                reportStartDate: '',
+                reportEndDate: '',
+                selectedContractsForDashboard: [],
+                activeTab: 'contratos',
+                showNewContract: false,
+                showEditModal: false,
+                showContractInfo: false,
+                selectedContractForInfo: null,
+                isEditingInfo: false,
+                infoForm: { detailed_description: '', guarantee_info: '' },
+                profileOpen: false,
+                loadingMigration: false,
+                expandedContracts: [],
+                installmentsReverse: false,
+                sortBy: 'description', // 'description', 'total_value', 'number_of_installments'
+                sortOrder: 'asc',
+                isFilterMenuOpen: false,
+                filterSearchQuery: '',
+                paymentSchedule: { summary: null, byBank: null },
+                selectedBank: null,
+                
+                newContract: {
+                    description: '',
+                    calculation_type: 'PRE_FIXED',
+                    total_value: '',
+                    total_interest_expected: '',
+                    number_of_installments: '',
+                    start_date: new Date().toISOString().split('T')[0],
+                    guarantee_info: '',
+                    detailed_description: ''
+                },
+                
+                editData: { id: null, status: 'PENDING', value: 0, interest: 0, due_date: '', notes: '' },
+
+                async init() {
+                    // Garantir que o Firebase carregou antes de prosseguir
+                    if (!window.FirebaseDB.ready) {
+                        await new Promise(resolve => document.addEventListener('firebase-ready', resolve, { once: true }));
+                    }
+
+                    window.FirebaseDB.onAuthStateChanged(window.FirebaseDB.auth, async (u) => {
+                        this.user = u;
+                        if (u) {
+                            // Definir Admin - EXCLUSIVO leonardooliveira@natulab.com.br
+                            this.isAdmin = u.email.toLowerCase() === 'leonardooliveira@natulab.com.br';
+                            
+                            // Se for Admin, aprova automaticamente para não travar na tela de espera
+                            if (this.isAdmin) {
+                                this.isApproved = true;
+                                this.userRole = 'admin';
+                                this.isWaitingApproval = false;
+                                this.loadContracts();
+                                this.loadPaymentSchedule();
+                                if (this.isAdmin) this.loadAllUsers();
+                                return;
+                            }
+
+                            // Acesso Natulab
+                            if (u.email.endsWith('@natulab.com.br')) {
+                                if (u.emailVerified) {
+                                    // Verificar aprovação no Firestore para usuários comuns
+                                    const metaRef = window.FirebaseDB.doc(window.FirebaseDB.db, "users_metadata", u.uid);
+                                    const metaSnap = await window.FirebaseDB.getDoc(metaRef);
+                                    
+                                    if (metaSnap.exists()) {
+                                        const data = metaSnap.data();
+                                        this.userRole = data.role || 'viewer';
+                                        
+                                        if (data.is_approved) {
+                                            this.isApproved = true;
+                                            this.isWaitingApproval = false;
+                                            this.isWaitingVerification = false;
+                                            this.loadContracts();
+                                        } else {
+                                            this.isApproved = false;
+                                            this.isWaitingApproval = true;
+                                            this.isWaitingVerification = false;
+                                        }
+                                    } else {
+                                        // Registro inicial
+                                        this.userRole = 'viewer';
+                                        this.isApproved = false;
+                                        this.isWaitingApproval = true;
+                                        this.isWaitingVerification = false;
+                                        await window.FirebaseDB.setDoc(metaRef, {
+                                            email: u.email,
+                                            is_approved: false,
+                                            role: 'viewer',
+                                            requested_at: new Date().toISOString()
+                                        });
+                                    }
+                                } else {
+                                    this.isWaitingVerification = true;
+                                    this.isWaitingApproval = false;
+                                }
+                            } else {
+                                alert("Acesso restrito a domínios @natulab.com.br");
+                                window.FirebaseDB.signOut(window.FirebaseDB.auth);
+                            }
+                        }
+                    });
+                },
+
+                async loadAllUsers() {
+                    const q = window.FirebaseDB.query(
+                        window.FirebaseDB.collection(window.FirebaseDB.db, "users_metadata")
+                    );
+                    window.FirebaseDB.onSnapshot(q, (snap) => {
+                        this.allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                            .sort((a, b) => (a.email || a.id || "").localeCompare(b.email || b.id || ""));
+                    });
+                },
+
+                async updateUser(userId, data) {
+                    try {
+                        const userRef = window.FirebaseDB.doc(window.FirebaseDB.db, "users_metadata", userId);
+                        await window.FirebaseDB.updateDoc(userRef, {
+                            ...data,
+                            updated_at: new Date().toISOString()
+                        });
+                        alert("Perfil atualizado com sucesso!");
+                    } catch (e) {
+                        alert("Erro ao atualizar: " + e.message);
+                    }
+                },
+
+                async deleteUser(userId) {
+                    if (confirm("Deseja realmente remover o acesso deste usuário?")) {
+                        try {
+                            const userRef = window.FirebaseDB.doc(window.FirebaseDB.db, "users_metadata", userId);
+                            await window.FirebaseDB.deleteDoc(userRef);
+                            alert("Usuário removido da lista de permissões.");
+                        } catch (e) {
+                            alert("Erro ao remover: " + e.message);
+                        }
+                    }
+                },
+
+                debugUID: '',
+                async forceCreateUserMetadata() {
+                    if (!this.debugUID || this.debugUID.length < 10) {
+                        alert("Por favor, insira um UID válido.");
+                        return;
+                    }
+                    try {
+                        const email = prompt("Qual o e-mail @natulab.com.br deste usuário?");
+                        if (!email) return;
+                        
+                        await window.FirebaseDB.setDoc(window.FirebaseDB.doc(window.FirebaseDB.db, "users_metadata", this.debugUID), {
+                            email: email,
+                            role: 'viewer',
+                            is_approved: false,
+                            requested_at: new Date().toISOString(),
+                            manually_created: true
+                        });
+                        alert("Registro forçado com sucesso! Agora o usuário deve aparecer na lista.");
+                        this.debugUID = '';
+                    } catch (e) {
+                        alert("Erro ao criar registro: " + e.message);
+                    }
+                },
+
+                async checkVerification() {
+                    await window.FirebaseDB.reload(window.FirebaseDB.auth.currentUser);
+                    if (window.FirebaseDB.auth.currentUser.emailVerified) {
+                        location.reload();
+                    } else {
+                        alert("E-mail ainda não verificado. Verifique sua caixa de entrada.");
+                    }
+                },
+
+                async resendVerification() {
+                    try {
+                        await window.FirebaseDB.sendEmailVerification(window.FirebaseDB.auth.currentUser);
+                        alert("E-mail de confirmação enviado!");
+                    } catch (e) {
+                        alert("Erro ao enviar: " + e.message);
+                    }
+                },
+
+                toggleAuthMode() {
+                    this.isRegistering = !this.isRegistering;
+                    this.authError = '';
+                    this.loginPass = '';
+                    this.loginPassConfirm = '';
+                },
+
+                async login() {
+                    this.loading = true;
+                    this.authError = '';
+                    try {
+                        await window.FirebaseDB.signInWithEmailAndPassword(window.FirebaseDB.auth, this.loginEmail, this.loginPass);
+                    } catch (e) {
+                        this.authError = "Falha na autenticação: Verifique e-mail e senha.";
+                    } finally { this.loading = false; }
+                },
+
+                async loginWithGoogle() {
+                    this.loading = true;
+                    this.authError = '';
+                    try {
+                        const provider = new window.FirebaseDB.GoogleAuthProvider();
+                        // Restringir domínio se necessário (opcional, mas recomendado para Natulab)
+                        // provider.setCustomParameters({ hd: 'natulab.com.br' });
+                        await window.FirebaseDB.signInWithPopup(window.FirebaseDB.auth, provider);
+                    } catch (e) {
+                        this.authError = "Falha no login com Google: " + e.message;
+                    } finally { this.loading = false; }
+                },
+
+                async register() {
+                    if (!this.loginEmail.endsWith('@natulab.com.br')) {
+                        this.authError = "Apenas e-mails @natulab.com.br são permitidos.";
+                        return;
+                    }
+                    if (this.loginPass !== this.loginPassConfirm) {
+                        this.authError = "As senhas não coincidem.";
+                        return;
+                    }
+                    if (this.loginPass.length < 6) {
+                        this.authError = "A senha deve ter pelo menos 6 caracteres.";
+                        return;
+                    }
+
+                    this.loading = true;
+                    this.authError = '';
+                    try {
+                        const userCredential = await window.FirebaseDB.createUserWithEmailAndPassword(window.FirebaseDB.auth, this.loginEmail, this.loginPass);
+                        
+                        // Criar metadados iniciais
+                        await window.FirebaseDB.setDoc(window.FirebaseDB.doc(window.FirebaseDB.db, "users_metadata", userCredential.user.uid), {
+                            email: this.loginEmail,
+                            is_approved: false,
+                            requested_at: new Date().toISOString()
+                        });
+
+                        await window.FirebaseDB.sendEmailVerification(userCredential.user);
+                        
+                        // Enviar e-mail para o Admin via EmailJS
+                        this.notifyAdmin(this.loginEmail);
+
+                        // Transição de tela
+                        this.isRegistering = false;
+                        this.isWaitingVerification = true;
+                        
+                        alert("Conta criada! Verifique seu e-mail da Natulab para confirmar a conta. Após confirmar, o administrador receberá um alerta para liberar seu acesso.");
+                    } catch (e) {
+                        if (e.code === 'auth/email-already-in-use') {
+                            this.authError = "Este e-mail já está cadastrado.";
+                        } else {
+                            this.authError = "Erro ao cadastrar: " + e.message;
+                        }
+                    } finally { this.loading = false; }
+                },
+
+                async notifyAdmin(userEmail) {
+                    if (window.emailjs) {
+                        const templateParams = {
+                            from_name: "Sistema Natulab Nuvem",
+                            admin_email: "leocoala551@gmail.com",
+                            user_email: userEmail,
+                            message: `Um novo usuário (${userEmail}) acabou de se cadastrar e aguarda sua aprovação para acessar os dados financeiros.`
+                        };
+
+                        window.emailjs.send('service_54pf7xf', 'template_8clnsag', templateParams, 'k1PR437LYgJYMf_p9')
+                            .then(() => {
+                                console.log("NOTIFICAÇÃO: E-mail de alerta enviado com sucesso!");
+                            }, (error) => {
+                                console.error("ERRO EMAILJS:", error);
+                            });
+                    }
+                },
+
+                // --- SISTEMA CORPORATIVO (MIGRAÇÃO STREAMLIT) ---
+                corpData: { ar: [], fin: [], aging: [] },
+                corpMetrics: { totalVencido: 0, totalAVencer: 0, pcld: 0 },
+                loadingCorp: false,
+
+                // Helper: Converte valores BR (1.234,56) ou SAP para Number
+                parseBRValue(val) {
+                    if (typeof val === 'number') return val;
+                    if (!val) return 0;
+                    try {
+                        let clean = val.toString()
+                            .replace(/R\$/g, '')
+                            .replace(/\./g, '')
+                            .replace(/,/g, '.')
+                            .replace(/\s/g, '')
+                            .trim();
+                        return parseFloat(clean) || 0;
+                    } catch (e) { return 0; }
+                },
+
+                // Helper: Converte datas diversas para objeto Date
+                parseBRDate(val) {
+                    if (val instanceof Date) return val;
+                    if (!val) return null;
+                    try {
+                        // Tentar formato DD/MM/AAAA
+                        if (typeof val === 'string' && val.includes('/')) {
+                            const [d, m, a] = val.split('/');
+                            return new Date(a, m - 1, d);
+                        }
+                        return new Date(val);
+                    } catch (e) { return null; }
+                },
+
+                // Helper: Busca a coluna que melhor combina com as palavras-chave
+                findColumn(row, keywords) {
+                    const keys = Object.keys(row);
+                    for (const key of keys) {
+                        const lowKey = key.toLowerCase();
+                        if (keywords.some(k => lowKey.includes(k))) return key;
+                    }
+                    return null;
+                },
+
+                async handleCorpUpload(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    this.loadingCorp = true;
+                    console.log("DEBUG: Iniciando upload corporativo...", file.name);
+                    
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        try {
+                            const data = new Uint8Array(ev.target.result);
+                            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                            const firstSheetName = workbook.SheetNames[0];
+                            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+                            
+                            if (!rows || rows.length === 0) throw new Error("A planilha parece estar vazia.");
+
+                            console.log("DEBUG: Colunas detectadas:", Object.keys(rows[0]));
+                            this.processAR(rows);
+                        } catch (err) {
+                            console.error("ERRO UPLOAD:", err);
+                            alert("Erro ao processar planilha: " + err.message);
+                        } finally {
+                            this.loadingCorp = false;
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                },
+
+                processAR(rows) {
+                    const hoje = new Date();
+                    hoje.setHours(0,0,0,0);
+                    
+                    // Identificar colunas dinamicamente
+                    const sample = rows[0];
+                    const colData = this.findColumn(sample, ['vencimento', 'venc', 'due', 'dt.venc']);
+                    const colValor = this.findColumn(sample, ['montante', 'valor', 'moeda interna', 'total', 'amount']);
+
+                    console.log(`DEBUG: Usando colunas: Data->[${colData}], Valor->[${colValor}]`);
+
+                    if (!colData || !colValor) {
+                        alert(`Não encontramos as colunas necessárias na sua planilha.\n\nEsperado: Vencimento e Valor.\nEncontrado: ${Object.keys(sample).join(", ")}`);
+                        return;
+                    }
+
+                    let vencido = 0, aVencer = 0, pcldTotal = 0;
+                    const agingData = {
+                        "Até 30 dias": 0, "31 a 60 dias": 0, "61 a 90 dias": 0, 
+                        "91 a 120 dias": 0, "121 a 180 dias": 0, "> 180 dias": 0
+                    };
+                    const pcldData = {
+                        "Até 30 dias": 0, "31 a 60 dias": 0, "61 a 90 dias": 0, 
+                        "91 a 120 dias": 0, "121 a 180 dias": 0, "> 180 dias": 0
+                    };
+
+                    rows.forEach((row, i) => {
+                        const valorRaw = row[colValor];
+                        const dataRaw = row[colData];
+                        
+                        const valor = this.parseBRValue(valorRaw);
+                        const dataVenc = this.parseBRDate(dataRaw);
+                        
+                        if (valor === 0 || !dataVenc || isNaN(dataVenc.getTime())) return;
+
+                        const diffTime = hoje - dataVenc;
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+                        if (diffDays > 0) {
+                            vencido += valor;
+                            if (diffDays <= 30) { 
+                                agingData["Até 30 dias"] += valor; 
+                            } else if (diffDays <= 60) { 
+                                agingData["31 a 60 dias"] += valor; 
+                                const p = valor * 0.05; pcldTotal += p; pcldData["31 a 60 dias"] += p;
+                            } else if (diffDays <= 90) { 
+                                agingData["61 a 90 dias"] += valor; 
+                                const p = valor * 0.25; pcldTotal += p; pcldData["61 a 90 dias"] += p;
+                            } else if (diffDays <= 120) { 
+                                agingData["91 a 120 dias"] += valor; 
+                                const p = valor * 0.50; pcldTotal += p; pcldData["91 a 120 dias"] += p;
+                            } else if (diffDays <= 180) { 
+                                agingData["121 a 180 dias"] += valor; 
+                                const p = valor * 0.75; pcldTotal += p; pcldData["121 a 180 dias"] += p;
+                            } else { 
+                                agingData["> 180 dias"] += valor; 
+                                const p = valor * 1.00; pcldTotal += p; pcldData["> 180 dias"] += p;
+                            }
+                        } else {
+                            aVencer += valor;
+                        }
+                    });
+
+                    this.corpMetrics = { 
+                        totalVencido: vencido, 
+                        totalAVencer: aVencer, 
+                        pcld: pcldTotal 
+                    };
+                    
+                    this.corpData.ar = rows;
+                    this.corpData.aging = Object.entries(agingData).map(([label, value]) => ({ label, value }));
+                    this.corpData.pcldByFaixa = Object.entries(pcldData).map(([label, value]) => ({ label, value }));
+                    
+                    console.log("DEBUG: Processamento concluído. Métricas:", this.corpMetrics);
+                    this.$nextTick(() => this.renderCharts());
+                },
+
+                toggleTvMode() {
+                    this.tvMode = !this.tvMode;
+                    document.body.classList.toggle('tv-mode');
+                    
+                    if (this.tvMode) {
+                        this.startTvRotation();
+                    } else {
+                        this.stopTvRotation();
+                    }
+                },
+
+                startTvRotation() {
+                    this.currentTvSlide = 0;
+                    this.tvProgress = 0;
+                    this.stopTvRotation();
+                    
+                    const SLIDE_DURATION = 10000; // 10 segundos por slide
+                    const UPDATE_INTERVAL = 100;
+                    
+                    this.tvInterval = setInterval(() => {
+                        this.tvProgress += (UPDATE_INTERVAL / SLIDE_DURATION) * 100;
+                        
+                        if (this.tvProgress >= 100) {
+                            this.tvProgress = 0;
+                            this.currentTvSlide = (this.currentTvSlide + 1) % 4;
+                            // Redesenhar gráficos ao mudar slide para garantir responsividade no novo container
+                            this.$nextTick(() => {
+                                window.dispatchEvent(new Event('resize'));
+                                this.renderCharts();
+                            });
+                        }
+                    }, UPDATE_INTERVAL);
+                },
+
+                stopTvRotation() {
+                    if (this.tvInterval) {
+                        clearInterval(this.tvInterval);
+                        this.tvInterval = null;
+                    }
+                    this.tvProgress = 0;
+                },
+
+                renderCharts() {
+                    const textColor = '#475569';
+                    const gridColor = '#f1f5f9';
+
+                    // Só renderiza se houver dados corporativos e elementos no DOM
+                    if (this.corpData.aging.length) {
+                        // Gráfico 1: Aging (Barras)
+                        const chartAgingEl = document.getElementById('chartAging');
+                        if (chartAgingEl) {
+                            const trace1 = {
+                                x: this.corpData.aging.map(d => d.label),
+                                y: this.corpData.aging.map(d => d.value),
+                                type: 'bar',
+                                marker: {
+                                    color: this.corpData.aging.map((_, i) => `rgba(225, 29, 72, ${1 - i * 0.12})`),
+                                    line: { width: 0 }
+                                },
+                                name: 'Valor em Atraso'
+                            };
+
+                            const layout1 = {
+                                separators: ',.',
+                                title: { text: 'AGING CONTAS A RECEBER', font: { size: 14, color: textColor, weight: 900 } },
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                margin: { t: 60, b: 60, l: 80, r: 40 },
+                                yaxis: { gridcolor: gridColor, tickprefix: 'R$ ', tickfont: { color: textColor, size: 10 }, automargin: true },
+                                xaxis: { tickfont: { color: textColor, size: 10 }, automargin: true },
+                                font: { family: 'Outfit, sans-serif' }
+                            };
+
+                            Plotly.newPlot('chartAging', [trace1], layout1, { responsive: true, displayModeBar: false });
+                        }
+
+                        // Gráfico 2: Composição (Pizza)
+                        const chartCompositionEl = document.getElementById('chartComposition');
+                        if (chartCompositionEl) {
+                            const trace2 = {
+                                labels: ['Vencido', 'A Vencer'],
+                                values: [this.corpMetrics.totalVencido, this.corpMetrics.totalAVencer],
+                                type: 'pie',
+                                hole: 0.5,
+                                marker: { colors: ['#f43f5e', '#10b981'] },
+                                textinfo: 'percent',
+                                textfont: { color: textColor, size: 12 },
+                                insidetextorientation: 'radial'
+                            };
+
+                            const layout2 = {
+                                separators: ',.',
+                                title: { text: 'DISTRIBUIÇÃO DA CARTEIRA', font: { size: 14, color: textColor, weight: 900 } },
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                margin: { t: 60, b: 80, l: 40, r: 40 },
+                                font: { family: 'Outfit, sans-serif', color: textColor },
+                                showlegend: true,
+                                legend: { x: 0.5, y: -0.2, xanchor: 'center', orientation: 'h', font: { size: 10, color: textColor } }
+                            };
+
+                            Plotly.newPlot('chartComposition', [trace2], layout2, { responsive: true, displayModeBar: false });
+                        }
+
+                        // Gráfico 3: Impacto PCLD (Barras Horizontais)
+                        const chartPcldEl = document.getElementById('chartPcld');
+                        if (chartPcldEl) {
+                            const trace3 = {
+                                y: this.corpData.pcldByFaixa.map(d => d.label),
+                                x: this.corpData.pcldByFaixa.map(d => d.value),
+                                type: 'bar',
+                                orientation: 'h',
+                                marker: {
+                                    color: '#f59e0b',
+                                    line: { width: 0 }
+                                },
+                                name: 'Risco PCLD'
+                            };
+
+                            const layout3 = {
+                                separators: ',.',
+                                title: { text: 'IMPACTO PCLD POR FAIXA', font: { size: 14, color: textColor, weight: 900 } },
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                margin: { t: 60, b: 60, l: 120, r: 40 },
+                                xaxis: { gridcolor: gridColor, tickprefix: 'R$ ', tickfont: { color: textColor, size: 10 }, automargin: true },
+                                yaxis: { tickfont: { color: textColor, size: 10 }, automargin: true },
+                                font: { family: 'Outfit, sans-serif' }
+                            };
+
+                            Plotly.newPlot('chartPcld', [trace3], layout3, { responsive: true, displayModeBar: false });
+                        }
+                    }
+
+                },
+                async loadPaymentSchedule() {
+                    const db = window.FirebaseDB.db;
+                    const summaryRef = window.FirebaseDB.doc(db, "payment_schedule", "summary");
+                    const byBankRef = window.FirebaseDB.doc(db, "payment_schedule", "by_bank");
+
+                    try {
+                        const [summarySnap, byBankSnap] = await Promise.all([
+                            window.FirebaseDB.getDoc(summaryRef),
+                            window.FirebaseDB.getDoc(byBankRef)
+                        ]);
+
+                        if (summarySnap.exists()) this.paymentSchedule.summary = summarySnap.data();
+                        if (byBankSnap.exists()) this.paymentSchedule.byBank = byBankSnap.data();
+                        
+                        // Pequeno delay extra para garantir que o layout DOM esteja estável
+                        setTimeout(() => {
+                            this.renderScheduleCharts();
+                        }, 300);
+                    } catch (e) {
+                        console.error("Erro ao carregar cronograma:", e);
+                    }
+                },
+
+                toggleBankSelection(bank) {
+                    if (this.selectedBank === bank) {
+                        this.selectedBank = null;
+                    } else {
+                        this.selectedBank = bank;
+                    }
+                    this.renderScheduleCharts();
+                },
+
+                renderScheduleCharts() {
+                    const isDark = document.documentElement.classList.contains('dark') || this.tvMode;
+                    const textColor = isDark ? '#f1f5f9' : '#1e293b';
+                    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+
+                    let years = [];
+                    let principalValues = [];
+                    let interestValues = [];
+                    let titleText = 'FLUXO DE PAGAMENTOS (2026-2031)';
+
+                    const getValuesFromData = (dataObj) => {
+                        const sortedYears = Object.keys(dataObj).sort();
+                        
+                        // Tentamos encontrar principal_by_year e interest_by_year no summary global
+                        // Se estivermos filtrando por banco, buscamos no summary do banco ou usamos proporção
+                        const principalMap = this.paymentSchedule.summary.principal_by_year || {};
+                        const interestMap = this.paymentSchedule.summary.interest_by_year || {};
+                        
+                        return {
+                            years: sortedYears,
+                            p: sortedYears.map(y => principalMap[y] || dataObj[y] * 0.85),
+                            i: sortedYears.map(y => interestMap[y] || dataObj[y] * 0.15)
+                        };
+                    };
+
+                    if (this.selectedBank && this.paymentSchedule.byBank && this.paymentSchedule.byBank[this.selectedBank]) {
+                        const res = getValuesFromData(this.paymentSchedule.byBank[this.selectedBank]);
+                        years = res.years;
+                        principalValues = res.p;
+                        interestValues = res.i;
+                        titleText = `CRONOGRAMA: ${this.selectedBank.toUpperCase()}`;
+                    } else if (this.paymentSchedule.summary && this.paymentSchedule.summary.totals_by_year) {
+                        const res = getValuesFromData(this.paymentSchedule.summary.totals_by_year);
+                        years = res.years;
+                        principalValues = res.p;
+                        interestValues = res.i;
+                    }
+
+                    const chartEl = document.getElementById('chartLongTerm');
+                    if (chartEl && years.length > 0) {
+                        const tracePrincipal = {
+                            x: years,
+                            y: principalValues,
+                            name: 'Principal',
+                            type: 'bar',
+                            marker: { color: isDark ? '#10b981' : '#059669', line: { width: 0 } },
+                            text: principalValues.map(v => this.formatCurrency(v)),
+                            textposition: 'none',
+                            hovertemplate: 'Principal: %{text}<extra></extra>'
+                        };
+
+                        const traceInterest = {
+                            x: years,
+                            y: interestValues,
+                            name: 'Juros / Encargos',
+                            type: 'bar',
+                            marker: { color: '#f59e0b', line: { width: 0 } },
+                            text: interestValues.map(v => this.formatCurrency(v)),
+                            textposition: 'none',
+                            hovertemplate: 'Juros: %{text}<extra></extra>'
+                        };
+
+                        const layout = {
+                            separators: ',.',
+                            title: { text: titleText, font: { size: 14, color: textColor, weight: 900 } },
+                            paper_bgcolor: 'rgba(0,0,0,0)',
+                            plot_bgcolor: 'rgba(0,0,0,0)',
+                            margin: { t: 60, b: 60, l: 60, r: 0 },
+                            xaxis: { tickfont: { color: textColor, weight: 'bold' }, gridcolor: 'transparent' },
+                            yaxis: { gridcolor: gridColor, tickfont: { color: textColor, size: 10 }, tickprefix: 'R$ ', automargin: true },
+                            font: { family: 'Outfit, sans-serif' },
+                            barmode: 'stack',
+                            autosize: true,
+                            showlegend: true,
+                            legend: {
+                                x: 0.5,
+                                y: -0.2,
+                                xanchor: 'center',
+                                orientation: 'h',
+                                font: { size: 11, color: textColor }
+                            },
+                            transition: { duration: 500, easing: 'cubic-in-out' }
+                        };
+
+                        Plotly.newPlot('chartLongTerm', [tracePrincipal, traceInterest], layout, { 
+                            responsive: true, 
+                            displayModeBar: false,
+                            displaylogo: false
+                        }).then(() => {
+                           // Força um resize imediato
+                           Plotly.Plots.resize('chartLongTerm');
+                        });
+
+                        // Garante que o gráfico se adapte a mudanças de tamanho do container (como ao abrir menus ou redimensionar janela)
+                        if (!this.resizeObserver) {
+                            this.resizeObserver = new ResizeObserver(() => {
+                                if (document.getElementById('chartLongTerm')) {
+                                    Plotly.Plots.resize('chartLongTerm');
+                                }
+                            });
+                            this.resizeObserver.observe(chartEl);
+                        }
+                    }
+                },
+
+                async logout() {
+                    await window.FirebaseDB.signOut(window.FirebaseDB.auth);
+                },
+
+                async loadContracts() {
+                    console.log("DEBUG: Iniciando loadContracts...");
+                    const q = window.FirebaseDB.query(
+                        window.FirebaseDB.collection(window.FirebaseDB.db, "contracts")
+                    );
+                    
+                    this.instListeners = this.instListeners || {};
+
+                    window.FirebaseDB.onSnapshot(q, (snapshot) => {
+                        console.log(`DEBUG: Snapshot de contratos recebido. Total: ${snapshot.size}`);
+                        
+                        snapshot.docChanges().forEach(async (change) => {
+                            const contractData = { id: change.doc.id, ...change.doc.data(), installments: [] };
+                            
+                            if (change.type === "added" || change.type === "modified") {
+                                // Se for modificado e já existir, preservamos as parcelas atuais até carregar as novas
+                                const existingIdx = this.contracts.findIndex(c => c.id === contractData.id);
+                                if (existingIdx !== -1) {
+                                    contractData.installments = this.contracts[existingIdx].installments;
+                                    this.contracts[existingIdx] = { ...contractData };
+                                } else {
+                                    this.contracts.push(contractData);
+                                }
+                                
+                                // Ordenar para garantir integridade visual
+                                this.contracts = [...this.contracts].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+
+                                // (Re)ativamos o ouvinte das parcelas
+                                if (this.instListeners[contractData.id]) this.instListeners[contractData.id]();
+                                
+                                this.instListeners[contractData.id] = window.FirebaseDB.onSnapshot(
+                                    window.FirebaseDB.collection(change.doc.ref, "installments"), 
+                                    (instSnap) => {
+                                        const installments = instSnap.docs
+                                            .map(i => ({ id: i.id, ...i.data() }))
+                                            .sort((a, b) => {
+                                                const numA = parseInt(a.installment_number || a.number || 0);
+                                                const numB = parseInt(b.installment_number || b.number || 0);
+                                                return numA - numB;
+                                            });
+                                        
+                                        const idx = this.contracts.findIndex(c => c.id === contractData.id);
+                                        if (idx !== -1) {
+                                            this.contracts[idx].installments = installments;
+                                            // Trigger reactivity e re-renderização de gráficos se necessário
+                                            this.contracts = [...this.contracts];
+                                            this.$nextTick(() => this.renderCharts());
+                                        }
+                                    },
+                                    (err) => console.error(`ERRO: Falha ao carregar parcelas do contrato ${contractData.id}:`, err)
+                                );
+                            } else if (change.type === "removed") {
+                                if (this.instListeners[contractData.id]) {
+                                    this.instListeners[contractData.id]();
+                                    delete this.instListeners[contractData.id];
+                                }
+                                this.contracts = this.contracts.filter(c => c.id !== contractData.id);
+                            }
+                        });
+                    }, (err) => {
+                        console.error("ERRO CRÍTICO: Falha ao conectar com a coleção de contratos:", err);
+                        if (err.code === 'permission-denied') {
+                            alert("Erro de Permissão: Você não tem autorização para visualizar os contratos. Verifique se seu acesso foi aprovado pelo administrador.");
+                        }
+                    });
+                },
+
+                async createContract() {
+                    if (!this.canEdit) return alert("Acesso negado: Apenas administradores podem criar vínculos.");
+                    console.log('DEBUG: Iniciando createContract', this.newContract);
+                    this.loading = true; // Usar o loading global para o botão salvar
+                    try {
+                        const payload = {
+                            description: this.newContract.description,
+                            calculation_type: this.newContract.calculation_type,
+                            total_value: this.newContract.calculation_type === 'PRE_FIXED' ? parseFloat(this.newContract.total_value) || 0 : 0,
+                            total_interest_expected: this.newContract.calculation_type === 'PRE_FIXED' ? parseFloat(this.newContract.total_interest_expected) || 0 : 0,
+                            number_of_installments: parseInt(this.newContract.number_of_installments),
+                            start_date: this.newContract.start_date,
+                            guarantee_info: this.newContract.guarantee_info || '',
+                            detailed_description: this.newContract.detailed_description || '',
+                            created_at: this.newContract.start_date,
+                            deleted_at: null
+                        };
+
+                        if (!payload.description || !payload.number_of_installments || !payload.start_date) {
+                            throw new Error("Por favor, preencha todos os campos obrigatórios.");
+                        }
+
+                        console.log('DEBUG: Salvando contrato...', payload);
+                        const docRef = await window.FirebaseDB.addDoc(window.FirebaseDB.collection(window.FirebaseDB.db, "contracts"), payload);
+                        
+                        // Geração de Parcelas local (substituindo o backend python)
+                        const num = payload.number_of_installments;
+                        let baseValue = 0, remainder = 0, baseInt = 0, intRem = 0;
+                        
+                        if (payload.calculation_type === 'PRE_FIXED') {
+                            baseValue = Math.floor((payload.total_value / num) * 100) / 100;
+                            remainder = (payload.total_value - (baseValue * num));
+                            baseInt = Math.floor((payload.total_interest_expected / num) * 100) / 100;
+                            intRem = (payload.total_interest_expected - (baseInt * num));
+                        }
+
+                        console.log('DEBUG: Gerando parcelas...', num);
+                        for (let i = 1; i <= num; i++) {
+                            let v = baseValue + (i === 1 ? remainder : 0);
+                            let j = baseInt + (i === 1 ? intRem : 0);
+                            
+                            const date = new Date(payload.start_date + "T00:00:00");
+                            date.setMonth(date.getMonth() + (i - 1));
+
+                            await window.FirebaseDB.addDoc(window.FirebaseDB.collection(docRef, "installments"), {
+                                installment_number: i,
+                                value: v.toFixed(2),
+                                interest: j.toFixed(2),
+                                due_date: date.toISOString().split('T')[0],
+                                status: 'PENDING'
+                            });
+                        }
+                        
+                        console.log('DEBUG: Contrato e parcelas criados com sucesso.');
+                        this.showNewContract = false;
+                        // Reset formulário
+                        this.newContract = {
+                            description: '',
+                            calculation_type: 'PRE_FIXED',
+                            total_value: '',
+                            total_interest_expected: '',
+                            number_of_installments: '',
+                            start_date: new Date().toISOString().split('T')[0],
+                            guarantee_info: '',
+                            detailed_description: ''
+                        };
+                    } catch (error) {
+                        console.error('DEBUG ERROR:', error);
+                        alert("ERRO AO CRIAR CONTRATO:\n\n" + error.message);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                openContractInfo(contract) {
+                    this.selectedContractForInfo = contract;
+                    this.infoForm.detailed_description = contract.detailed_description || '';
+                    this.infoForm.guarantee_info = contract.guarantee_info || '';
+                    this.isEditingInfo = false;
+                    this.showContractInfo = true;
+                },
+
+                async saveContractInfo() {
+                    if (!this.canEdit) return alert("Acesso negado: Apenas administradores podem gerenciar estas informações.");
+                    if (!this.selectedContractForInfo) return;
+                    this.loading = true;
+                    try {
+                        const contractRef = window.FirebaseDB.doc(window.FirebaseDB.db, "contracts", this.selectedContractForInfo.id);
+                        await window.FirebaseDB.updateDoc(contractRef, {
+                            detailed_description: this.infoForm.detailed_description,
+                            guarantee_info: this.infoForm.guarantee_info,
+                            updated_at: new Date().toISOString()
+                        });
+                        
+                        // Atualizar objeto local para reflexo imediato
+                        this.selectedContractForInfo.detailed_description = this.infoForm.detailed_description;
+                        this.selectedContractForInfo.guarantee_info = this.infoForm.guarantee_info;
+                        
+                        this.isEditingInfo = false;
+                        alert("Informações do contrato atualizadas com sucesso!");
+                    } catch (e) {
+                        alert("Erro ao salvar informações: " + e.message);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async deleteContract(id) {
+                    if (!this.canEdit) return alert("Acesso negado: Apenas administradores podem excluir vínculos.");
+                    if (confirm("Mover este vínculo para a Auditoria (30 dias de retenção)?")) {
+                        const contractRef = window.FirebaseDB.doc(window.FirebaseDB.db, "contracts", id);
+                        await window.FirebaseDB.updateDoc(contractRef, { deleted_at: new Date().toISOString() });
+                    }
+                },
+
+                toggleContract(id) {
+                    if (this.expandedContracts.includes(id)) {
+                        this.expandedContracts = this.expandedContracts.filter(c => c !== id);
+                    } else {
+                        this.expandedContracts.push(id);
+                    }
+                },
+
+                openEditModal(inst) {
+                    this.editData = { ...inst };
+                    this.showEditModal = true;
+                },
+
+                async updateInstallment() {
+                    if (!this.canEdit) return alert("Acesso negado: Apenas administradores podem alterar parcelas.");
+                    const contract = this.contracts.find(c => c.installments.some(i => i.id === this.editData.id));
+                    if (!contract) return;
+
+                    const instRef = window.FirebaseDB.doc(window.FirebaseDB.db, "contracts", contract.id, "installments", this.editData.id);
+                    const newValue = parseFloat(this.editData.value || 0);
+                    const newInterest = parseFloat(this.editData.interest || 0);
+
+                    await window.FirebaseDB.updateDoc(instRef, {
+                        status: this.editData.status,
+                        value: newValue.toFixed(2),
+                        interest: newInterest.toFixed(2),
+                        due_date: this.editData.due_date
+                    });
+
+                    const newTotal = contract.installments
+                        .map(i => i.id === this.editData.id ? newValue : parseFloat(i.value || 0))
+                        .reduce((a, b) => a + b, 0);
+
+                    await window.FirebaseDB.updateDoc(window.FirebaseDB.doc(window.FirebaseDB.db, "contracts", contract.id), {
+                        total_value: newTotal,
+                        updated_at: new Date().toISOString()
+                    });
+
+                    this.showEditModal = false;
+                },
+
+                async togglePayStatus(inst) {
+                    if (!this.canEdit) return; // Silent guard para clique rápido
+                    const contract = this.contracts.find(c => c.installments.some(i => i.id === inst.id));
+                    if (!contract) return;
+                    
+                    const instRef = window.FirebaseDB.doc(window.FirebaseDB.db, "contracts", contract.id, "installments", inst.id);
+                    const newStatus = inst.status === 'PAID' ? 'PENDING' : 'PAID';
+                    
+                    // Atualização Otimista local
+                    inst.status = newStatus;
+                    
+                    await window.FirebaseDB.updateDoc(instRef, { status: newStatus });
+                    
+                    // Força reatividade no Firebase tocando o contrato pai
+                    await window.FirebaseDB.updateDoc(window.FirebaseDB.doc(window.FirebaseDB.db, "contracts", contract.id), {
+                        updated_at: new Date().toISOString()
+                    });
+                },
+
+                // UTILS
+                formatContractName(name) {
+                    if (!name) return "";
+                    
+                    // Decodificar sequências Unicode escapadas (ex: \\u00e9 -> é)
+                    let decodedName = name.replace(/\\u([0-9a-fA-F]{4})/g, (match, grp) => {
+                        return String.fromCharCode(parseInt(grp, 16));
+                    });
+
+                    // Lógica específica para "Cesta de Garantias"
+                    if (decodedName.toLowerCase().includes('cesta')) {
+                        return "Cesta de Garantias";
+                    }
+
+                    return decodedName;
+                },
+                formatCurrency(v) { 
+                    if (typeof v === 'string' && v.includes('R$')) return v;
+                    let num = parseFloat(v);
+                    if (isNaN(num)) num = 0;
+                    const parts = num.toFixed(2).split('.');
+                    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    return 'R$ ' + parts.join(',');
+                },
+                formatDate(d) { return new Intl.DateTimeFormat('pt-BR').format(new Date(d + "T00:00:00")); },
+                isPaid(s) { return s === 'PAID' || s === 'Pago'; },
+                isOverdue(d, s) { 
+                    const status = s ? s.toUpperCase() : '';
+                    const isPending = status === 'PENDING' || status === 'A VENCER' || status === 'ABERTO';
+                    return (isPending && new Date(d + "T00:00:00") < new Date().setHours(0,0,0,0)); 
+                },
+
+                get filteredContracts() {
+                    let items = this.contracts.filter(c => !c.deleted_at);
+                    
+                    if (this.searchQuery) {
+                        const q = this.searchQuery.toLowerCase();
+                        items = items.filter(c => c.description.toLowerCase().includes(q));
+                    }
+
+                    // Lógica de Ordenação
+                    items.sort((a, b) => {
+                        let valA, valB;
+                        if (this.sortBy === 'description') {
+                            valA = a.description.toLowerCase();
+                            valB = b.description.toLowerCase();
+                        } else if (this.sortBy === 'total_value') {
+                            valA = parseFloat(a.total_value || 0);
+                            valB = parseFloat(b.total_value || 0);
+                        } else if (this.sortBy === 'number_of_installments') {
+                            valA = parseInt(a.number_of_installments || 0);
+                            valB = parseInt(b.number_of_installments || 0);
+                        }
+
+                        if (this.sortOrder === 'asc') {
+                            return valA > valB ? 1 : -1;
+                        } else {
+                            return valA < valB ? 1 : -1;
+                        }
+                    });
+
+                    return items;
+                },
+
+                get dashboardMetrics() {
+                    let principal = 0, interest = 0;
+                    
+                    let startLimit = null;
+                    let endLimit = null;
+
+                    if (this.reportPeriod === 'custom') {
+                        if (this.reportStartDate) startLimit = new Date(this.reportStartDate + "T00:00:00");
+                        if (this.reportEndDate) endLimit = new Date(this.reportEndDate + "T23:59:59");
+                    } else if (this.reportPeriod !== 'all') {
+                        startLimit = new Date(); 
+                        startLimit.setHours(0,0,0,0); 
+                        startLimit.setDate(1);
+                        startLimit.setMonth(startLimit.getMonth() - (parseInt(this.reportPeriod) - 1));
+                    }
+
+                    this.contracts.forEach(c => {
+                        if (c.deleted_at) return;
+                        if (this.selectedContractsForDashboard.length > 0 && !this.selectedContractsForDashboard.includes(c.id)) return;
+                        
+                        c.installments.forEach(i => {
+                            if (this.isPaid(i.status)) {
+                                const due = new Date(i.due_date + "T00:00:00");
+                                
+                                let inRange = true;
+                                if (startLimit && due < startLimit) inRange = false;
+                                if (endLimit && due > endLimit) inRange = false;
+
+                                if (inRange) {
+                                    principal += parseFloat(i.value || 0);
+                                    interest += parseFloat(i.interest || 0);
+                                }
+                            }
+                        });
+                    });
+                    return { principal, interest };
+                },
+
+                // FERRAMENTA DE MIGRAÇÃO (Detecção Local)
+                async migrateFromLocal() {
+                    const ans = confirm("Isso irá ler o banco de dados local (SQLite/FastAPI) com os dados da V0 e subir para o Firebase da Natulab Nuvem. Garanta que o backend está funcionando. Deseja continuar?");
+                    if (!ans) return;
+                    
+                    this.loadingMigration = true;
+                    try {
+                        // Tentar requisitar o banco de dados FastAPI antigo (preferindo 127.0.0.1 sobre localhost para IPv4 local)
+                        const res = await fetch("http://127.0.0.1:8000/contracts/").catch(err => {
+                            throw new Error(`Servidor não encontrado ou erro de CORS em 127.0.0.1. (A página deve ser acessada de um ambiente local com a bat rondando). ${err.message}`);
+                        });
+                        
+                        if (!res.ok) {
+                            throw new Error(`O servidor respondeu com status HTTP ${res.status}`);
+                        }
+                        
+                        const data = await res.json();
+                        
+                        if (!data || data.length === 0) {
+                            alert("O banco de dados local parecia estar vazio. Nada para migrar.");
+                            return;
+                        }
+
+                        let docsImportados = 0;
+                        for (const c of data) {
+                             const { installments, id, ...cData } = c;
+                             
+                             // Salvar contrato (evitar duplo deleted_at se vier)
+                             const validData = { ...cData, deleted_at: null };
+                             if(!validData.created_at) validData.created_at = new Date().toISOString().split('T')[0];
+                             
+                             // Opcional, mas valioso: forçar numéricos para contornar problemas de tipagem da API local se voltarem string
+                             if (validData.total_value !== undefined) validData.total_value = parseFloat(validData.total_value) || 0;
+                             if (validData.total_interest_expected !== undefined) validData.total_interest_expected = parseFloat(validData.total_interest_expected) || 0;
+
+                             const cRef = await window.FirebaseDB.addDoc(window.FirebaseDB.collection(window.FirebaseDB.db, "contracts"), validData);
+                             docsImportados++;
+
+                             if(installments && installments.length > 0) {
+                                 for (const i of installments) {
+                                     const { id: iid, contract_id, ...iData } = i;
+                                     if(iData.value !== undefined) iData.value = parseFloat(iData.value) || 0;
+                                     if(iData.interest !== undefined) iData.interest = parseFloat(iData.interest) || 0;
+                                     await window.FirebaseDB.addDoc(window.FirebaseDB.collection(cRef, "installments"), iData);
+                                 }
+                             }
+                        }
+                        alert(`Sucesso! Migramos ${docsImportados} vínculos (contratos) antigos para a Nuvem de Automações. Renderizando agora...`);
+                        location.reload();
+                    } catch (e) {
+                        if (e.message.includes("permission") || e.message.includes("permissão")) {
+                            alert(`ERRO DE PERMISSÃO NA NUVEM:\n\nSua conta (${window.FirebaseDB.auth.currentUser?.email}) não tem autorização para gravar dados no Firebase.\n\nDetalhe: ${e.message}`);
+                        } else {
+                            alert(`ERRO DE CONEXÃO LOCAL:\n\nNão conseguimos ler os dados do seu computador (FastAPI em 127.0.0.1).\n\n1. Garanta que o backend está ligado (bat aberta).\n2. Se estiver, pode ser um erro de rede ou CORS.\n\nDetalhe técnico: ${e.message}`);
+                        }
+                    } finally {
+                        this.loadingMigration = false;
+                    }
+                }
+            }));
+        });
+    </script>
+</body>
+</html>

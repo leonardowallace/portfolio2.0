@@ -48,6 +48,12 @@ def main():
                 shutil.copy2(src, dest)
                 logging.info(f"Asset copiado: {src} -> {dest}")
 
+        # Copiar pasta de projetos interativos como demo standalone
+        if os.path.exists('controle_parcelas_demo'):
+            import shutil
+            shutil.copytree('controle_parcelas_demo', 'data/output/controle_parcelas_demo', dirs_exist_ok=True)
+            logging.info("Demo do Controle de Parcelas copiado com sucesso.")
+
         logging.info("Portfólio gerado com sucesso em data/output/")
 
         print("✅ Portfólio gerado com sucesso em data/output/")

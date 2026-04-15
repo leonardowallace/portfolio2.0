@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper para verificar se o usuário logado tem permissão de ADMIN
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'leonardooliveira@natulab.com.br' ||
+        get(/databases/$(database)/documents/users_metadata/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    match /{document=**} {
+      // Todo usuário Natulab autenticado pode ler
+      allow read: if request.auth != null && 
+        (request.auth.token.email.matches('.*@natulab\\.com\\.br$') || 
+         request.auth.token.email == 'leocoala551@gmail.com');
+         
+      // Apenas Admins podem criar, editar ou excluir dados
+      allow write: if isAdmin();
+    }
+  }
+}
